@@ -1,0 +1,8 @@
+[Unit]
+Description= Start eterban_swich.py
+
+[Service]
+ExecStart=/etc/eterban/eterban_swich.py
+
+[Install]
+WantedBy=multi-user.target

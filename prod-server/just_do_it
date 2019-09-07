@@ -1,3 +1,4 @@
 
-В jail.local в необходимых местах (всех banaction/action) изменить действие н
-а iptables-resend.conf, bantime = 30 
+В jail.local (либо в конкретных rules.conf) изменить действие на 
+action = eterban
+bantime = 1 

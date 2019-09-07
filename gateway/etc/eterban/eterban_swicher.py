@@ -1,16 +1,17 @@
 #!/usr/bin/python3
 import redis
 import subprocess
-import os
 
-pidfile = open ('/var/run/action.pid', 'w')
-pid = str(os.getpid()) + '\n'
-pidfile.write(pid)
-pidfile.close()
-
-
-IP_addr_gateway = '192.168.100.50'
-host_redis = '192.168.101.101'
+f = open ('/etc/eterban/eterban_swicher.conf','r')
+line = f.readline()
+f.close()
+if line[:10] == "host_redis":
+    if line[-1] == '\n':
+        host_redis = line[-16:-1]
+    else:
+        host_redis = line[-15:]
+del(line)
+del(f)
 
 subprocess.call ('ipset create blacklist hash:ip', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
 
