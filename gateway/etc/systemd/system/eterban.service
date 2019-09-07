@@ -1,8 +1,8 @@
 [Unit]
-Description= Start eterban_swich.py
+Description= Start eterban_switcher.py
 
 [Service]
-ExecStart=/etc/eterban/eterban_swich.py
+ExecStart=/etc/eterban/eterban_switcher.py
 
 [Install]
 WantedBy=multi-user.target
