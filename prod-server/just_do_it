@@ -1,0 +1,3 @@
+
+В jail.local в необходимых местах (всех banaction/action) изменить действие н
+а iptables-resend.conf, bantime = 30 

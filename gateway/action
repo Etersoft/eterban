@@ -1,0 +1,5 @@
+#Создать файл /etc/monit.d/action:
+check process action with pidfile /var/run/action.pid
+        start programm = "/path/to/action.py"
+        stop programm = "/bin/kill $(cat /var/run/action.pid)"
+                

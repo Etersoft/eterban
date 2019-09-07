@@ -1,0 +1,159 @@
+NormalServer:
+0. Проверить установленность fail2ban
+
+1. Создать файл /etc/fail2ban/action.d/iptables-resend.conf:
+[INCLUDES]
+Before = iptables-common.conf
+
+[Defenition]
+actionban = /path/to/ban.py <ip> 
+
+[Init]
+
+2. В jail.local в необходимых местах (всех banaction/action) изменить действие на iptables-resend.conf, bantime = 30 
+
+3. Создать файл /path/to/ban.py
+#!/usr/bin/python
+import os, sys, random, redis
+
+pid = str(os.getpid()+'\n'
+pidfile = open ('/var/run/ban.pid','w')
+pidfile.write (pid)
+pidfile.close()
+
+r = redis.StrictRedis (host=REDIS_ADDR)
+r.publish ('ban', sys.argv[1])
+r.set (sys.argv[1], random.randint(0, 9999999999))
+
+Где в качестве REDIS_ADDR пользователь должен будет ввести адрес redis-server.
+-------------------------------------------------------------------------
+Gateway:
+
+Создать файл /path/to/action.py:
+#!/usr/bin/python
+
+import redis
+import subprocess
+import os
+
+pidfile = open ('/var/run/action.pid', 'w')
+pid = str(os.getpid())+'\n'
+pidfile.write (pid)
+pidfile.close()
+
+r = redis.StrictRedis (host= REDIS_ADDR)
+p = r.pubsub()
+p.subscribe('ban','unban')
+
+subprocess.call ('ipset -N blacklist hash:ip' , shell = True)
+
+for message in p.listen():
+ #print message
+ if message['type']=='message' and message['channel']=='ban':
+  
+  ip = str (message['data'])
+  ban = 'ipset -A blacklist ' + ip 
+  subprocess.call (ban, shell = True)
+  print 'ban ', ip 
+ 
+ elif message['type']=='message' and message ['channel']=='unban':
+  ip = str (message['data'])
+  unban = 'ipset -D blacklist ' + ip 
+  
+  subprocess.call (unban, shell = True)
+  print 'unban ', ip 
+  
+  tcp_drop = 'conntrack -D -s ' + ip + ' -d 192.168.1.100'
+  subprocess.Popen(tcp_drop, stdout=subprocess.PIPE, stderr=subprocess.PIPE,shell = True)
+
+
+Создать файл /etc/monit.d/action:
+check process action with pidfile /var/run/action.pid
+	start programm = "/path/to/action.py"
+	stop programm = "/bin/kill $(cat /var/run/action.pid)"
+
+Добавить правило  в iptables:
+iptables -t nat -v -I PREROUTING -i INTERFACE -m set --match-set balscklist src -j DNAT --to-destination BAN_SERVER_ADDR
+
+Где INTERFACE и BAN_SERVER_ADDR надо указать пользователю.
+-------------------------------------------------------------------------
+
+BanServer:
+Создать файл /etc/nginx/sites-aviable.d/default.conf и ссылку на него в /etc/nginx/sites-enabled.d:
+server {
+	listen *:80;
+	
+	location / {
+		root /var/www/php;
+		#lingering_close off;
+		include /etc/nginx/fastcgi_params;
+		fastcgi_pass unix:/var/run/php5-fpm/php5-fpm.sock;
+		fastcgi_param SCRIPT_FILENAME /var/www/php/ban.php;
+	}
+	location =/unban.php {
+		root /var/www/php;
+		#lingering_close off;
+		#proxy_buffering off;
+		include /etc/nginx/fastcgi_params;
+		fastcgi_pass unix:/var/run/php5-fpm/php5-fpm.sock;
+		fastcgi_param SCRIPT_FILENAME /var/www/php/ban.php;
+	}
+}
+
+Создать /var/www/php/ban.php:
+<?php
+$ip = $_SERVER['REMOTE_ADDR'];
+echo "You are banned!, Your IP: $ip <br>";
+
+$redis = new Redis;
+$redis->pconnect ('192.168.0.99',6379);
+$key = $redis->get($ip);
+?>
+
+<button onclick="unban()">Unban</button>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.2.0/jquery.js"></script>
+
+<script>
+
+function unban(){
+    /*$.get("unban.php?&key=<?php echo $key;?>", function(data, status){
+    });*/
+    
+    window.location.href = "unban.php?key=<?php echo $key; ?>";
+}
+</script>
+
+Создать /var/www/php/unban.php:
+<?php
+$key = $_GET['key'];
+$ip = $_SERVER['REMOTE_ADDR'];
+$old_addr = $_SERVER['HTTP_REFERER'];
+
+$redis = new Redis();
+$redis->pconnect('192.168.0.99',6379);
+
+if ($redis->get($ip) == $key)
+{
+?>
+ <script type="text/javascript" src="cdnjs.cloudeflare.com/ajax/libs/jquery/2.2.0/jquery.js"> </script>
+ 
+ <script>
+ 
+ function update()
+ {
+  window.location.href = "<?php echo $old_addr;?>";
+ }
+ setInterval("update()", 200);
+ </script>
+
+<?php
+ $redis->publish('unban', $ip);
+ $redis->del ($ip);
+
+} else {
+  echo "Pls, don`t brute force";
+}
+$redis->close();
+?>
+
