@@ -2,7 +2,7 @@
 import redis
 import subprocess
 
-f = open ('/etc/eterban/eterban_swicher.conf','r')
+f = open ('/etc/eterban/eterban.conf','r')
 line = f.readline()
 f.close()
 if line[:10] == "host_redis":
