@@ -57,29 +57,37 @@ Etersoft ban service.
 #install -m644 include/limits/* %buildroot%_sysconfdir/nginx/include/limits/
 mkdir -p %buildroot%_datadir/%name/
 mkdir -p %buildroot/etc/%name/
-install -m 755 gateway/usr/share/* %buildroot%_datadir/%name/
+mkdir -p %buildroot/etc/fail2ban/action.d/
+mkdir -p %buildroot/etc/fail2ban/jail.d/
+mkdir -p %buildroot/etc/systemd/system/
+
+mkdir -p %buildroot%webserver_htdocsdir/%name/
+
+
+cp -a gateway/usr/share/%name/* %buildroot%_datadir/%name/
 install -m 644 gateway/etc/eterban/* %buildroot/etc/%name/
 install -m 644 gateway/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
 install -m 644 gateway/etc/fail2ban/jail.d/* %buildroot/etc/fail2ban/jail.d/
 install -m 644 gateway/etc/systemd/system/* %buildroot/etc/systemd/system/
-install -m 644 ban-server/data/www/* %buildroot/ban-server/data/www/
 
+install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
 
-#mkdir -p %buildroot%_datadir/%name/images/
-#install -m644 share/images/* %buildroot%_datadir/%name/images/
-
-#mkdir -p %buildroot%webserver_htdocsdir/maintenance/
-#install -m644 www/* %buildroot%webserver_htdocsdir/maintenance/
+install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
+cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
 %files gateway
-#%dir %_sysconfdir/nginx/include/
-#%config(noreplace) %_sysconfdir/nginx/include/*
+/etc/%name/eterban.conf
+/etc/fail2ban/action.d/ban.conf
+/etc/fail2ban/jail.d/blacklist.conf
+/etc/systemd/system/
+%_datadir/%name/eterban_switcher.py
 
 %files web
 %webserver_htdocsdir/%name/
 
-#%files fail2ban
-#%_datadir/%name/file
+%files fail2ban
+/etc/%name/eterban.conf
+%_datadir/%name/ban.py
 
 %changelog
 * Sat Sep 07 2019 Vitaly Lipatov <lav@altlinux.ru> 0.1-alt1
