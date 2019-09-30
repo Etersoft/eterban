@@ -76,9 +76,9 @@ install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/actio
 cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
 %files gateway
-/etc/%name/eterban.conf
-/etc/fail2ban/action.d/ban.conf
-/etc/fail2ban/jail.d/blacklist.conf
+%config(noreplace) /etc/%name/eterban.conf
+%config(noreplace) /etc/fail2ban/action.d/ban.conf
+%config(noreplace) /etc/fail2ban/jail.d/blacklist.conf
 /etc/systemd/system/
 %_datadir/%name/eterban_switcher.py
 
@@ -86,9 +86,9 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %webserver_htdocsdir/%name/
 
 %files fail2ban
-/etc/%name/eterban.conf
+%config(noreplace) /etc/%name/eterban.conf
 %_datadir/%name/ban.py
-
+%config(noreplace) /etc/fail2ban/action.d/eterban.conf
 %changelog
 * Sat Sep 07 2019 Vitaly Lipatov <lav@altlinux.ru> 0.1-alt1
 - initial build for ALT Sisyphus
