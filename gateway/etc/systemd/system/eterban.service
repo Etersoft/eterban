@@ -2,7 +2,7 @@
 Description= Start eterban_switcher.py
 
 [Service]
-ExecStart=/etc/eterban/eterban_switcher.py
+ExecStart=/usr/share/eterban/eterban_switcher.py
 
 [Install]
 WantedBy=multi-user.target

@@ -6,14 +6,20 @@ f = open ('/etc/eterban/eterban.conf','r')
 line = f.readline()
 f.close()
 if line[:10] == "host_redis":
+    i = 10
+    while (line[i] == " "):
+        i+=1
+    i+=1
+    while (line[i] == " "):
+        i+=1
     if line[-1] == '\n':
-        host_redis = line[-16:-1]
+        host_redis = line[i:-1]
     else:
-        host_redis = line[-15:]
+        host_redis = line[i:]
 del(line)
 del(f)
 
-subprocess.call ('ipset create blacklist hash:ip', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
+#subprocess.call ('ipset create blacklist hash:ip', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
 
 r = redis.Redis(host=host_redis)
 p = r.pubsub()
