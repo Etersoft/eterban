@@ -7,10 +7,10 @@ f.close()
 if line[:10] == "host_redis":
     i = 10
     while (line[i] == ' '):
-	i+=1
+        i+=1
     i+=1
     while (line[i] == ' '):
-	i+=1
+        i+=1
 
     if line[-1] == '\n':
         host_redis = line[i:-1]
