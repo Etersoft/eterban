@@ -1,0 +1,8 @@
+[Unit]
+Description= Start ban.py
+
+[Service]
+ExecStart=/usr/share/eterban/ban.py
+
+[Install]
+WantedBy=multi-user.target
