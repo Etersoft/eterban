@@ -18,7 +18,7 @@ BuildArchitectures: noarch
 # error: File must begin with "/": %webserver_htdocsdir/maintenance/
 BuildRequires: rpm-macros-webserver-common
 
-Requires: python3 python3-module-redis-py
+#Requires: python3 python3-module-redis-py
 
 %description
 Etersoft ban service.
@@ -73,6 +73,8 @@ install -m 644 gateway/etc/systemd/system/* %buildroot/etc/systemd/system/
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
 
 install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
+install -m 644 prod-server/etc/fail2ban/jail.d/* %buildroot/etc/fail2ban/action.d/
+
 cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
 %files gateway
@@ -89,6 +91,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/%name/eterban.conf
 %_datadir/%name/ban.py
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
+%config(noreplace) /etc/fail2ban/jail.d/eterban.conf
 %changelog
 * Sat Sep 07 2019 Vitaly Lipatov <lav@altlinux.ru> 0.1-alt1
 - initial build for ALT Sisyphus
