@@ -8,7 +8,7 @@ License: AGPLv3
 Group: Development/Other
 Url: http://wiki.etersoft.ru/eterban
 
-Packager: Vitaly Lipatov <lav@altlinux.ru>
+Packager: Ruzal Gimazov <diff@etersoft.ru>
 
 # Source-git: https://gitlab.eterfund.ru/diff/eterban.git
 Source: %name-%version.tar
@@ -18,7 +18,7 @@ BuildArchitectures: noarch
 # error: File must begin with "/": %webserver_htdocsdir/maintenance/
 BuildRequires: rpm-macros-webserver-common
 
-#Requires: nginx >= 1.8.1
+Requires: python3 python3-module-redis-py
 
 %description
 Etersoft ban service.
