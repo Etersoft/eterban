@@ -68,12 +68,13 @@ cp -a gateway/usr/share/%name/* %buildroot%_datadir/%name/
 install -m 644 gateway/etc/eterban/* %buildroot/etc/%name/
 install -m 644 gateway/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
 install -m 644 gateway/etc/fail2ban/jail.d/* %buildroot/etc/fail2ban/jail.d/
+
 install -m 644 gateway/etc/systemd/system/* %buildroot/etc/systemd/system/
 
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
 
 install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
-install -m 644 prod-server/etc/fail2ban/jail.d/* %buildroot/etc/fail2ban/action.d/
+install -m 644 prod-server/etc/fail2ban/jail.d/* %buildroot/etc/fail2ban/jail.d/
 
 cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
