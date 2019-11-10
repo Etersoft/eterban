@@ -1,4 +1,0 @@
-
-В jail.local (либо в конкретных rules.conf) изменить действие на 
-action = eterban
-bantime = 1 

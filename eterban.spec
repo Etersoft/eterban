@@ -35,6 +35,7 @@ Etersoft ban service.
 %package web
 Summary: Etersoft ban service: web
 Group: Development/Other
+Requires: php-redis
 
 %description web
 Etersoft ban service.
@@ -43,7 +44,7 @@ Etersoft ban service.
 %package fail2ban
 Summary: Etersoft ban service: fail2ban
 Group: Development/Other
-
+Requires: redis
 %description fail2ban
 Etersoft ban service.
 
@@ -60,7 +61,7 @@ mkdir -p %buildroot/etc/%name/
 mkdir -p %buildroot/etc/fail2ban/action.d/
 mkdir -p %buildroot/etc/fail2ban/jail.d/
 mkdir -p %buildroot/etc/systemd/system/
-
+mkdir -p %buildroot/var/log/eterban/
 mkdir -p %buildroot%webserver_htdocsdir/%name/
 
 

@@ -1,4 +1,4 @@
 [eterban]
-enabled = true
+enabled = false
 filter = nginx-limit-req
 action = eterban
