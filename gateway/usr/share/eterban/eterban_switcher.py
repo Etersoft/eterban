@@ -33,7 +33,7 @@ def get_ip_redis_server (path_to_config, path_to_log):
     # Читаем некоторые значения из конфиг. файла.
     
     redis_server = config.get("Settings", "redis_server", fallback = "No such things as redis_server")
-    if redis_server == "No such things as monsters":
+    if redis_server == "No such things as redis_server":
         config.set("Settings", "redis_server", "10.20.30.101")
         with open(path_to_config, "w") as config_file:
             config_file.write(config)
@@ -48,12 +48,10 @@ def get_ip_redis_server (path_to_config, path_to_log):
 try:
     path_to_log = '/var/log/eterban/eterban.log'
     log = open (path_to_log, 'a')
-    log.close()
 except:
     try:
         path_to_log = '/var/log/eterban.log'
         log = open (path_to_log,'a')
-        log.close()
     except:
         print ("Unknown error with logfile")
         sys.exit()
@@ -74,8 +72,8 @@ p = r.pubsub()
 p.subscribe('ban', 'unban', 'by')
 
 for message in p.listen():
-        if message is not None and  message['type']=='message' and message['channel'] == b'ban':
-        #print (message)
+    if message is not None and  message['type']=='message' and message['channel'] == b'ban':
+        ip = message['data'].decode('utf-8')
         ip = message['data'].decode('utf-8')
         #ban = 'ipset -A blacklist ' + ip
         ban = 'fail2ban-client set blacklist  banip ' + ip
@@ -94,19 +92,18 @@ for message in p.listen():
         tcp_drop = 'conntrack -D -s ' + ip
         subprocess.Popen(tcp_drop, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
         #subprocess.Popen(tcp_drop, shell = True)
-
     elif message is not None and message['type'] =='message' and message['channel'] == b'by':
         info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
         info += " " + message['data'].decode('utf-8') + "\n"
         #print (info)
-        log.write (info)
+        log.write(info)
         log.flush()
     elif message is not None:
         #print ("AHTUNG!!1!", message)
         info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
         info += " Unknown message: " + str(message) + "\n"
         #print (info)
-        log.write (info)
+        log.write(info)
         log.flush()
     else:
         pass
