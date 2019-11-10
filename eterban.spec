@@ -1,6 +1,6 @@
 Name: eterban
-Version: 0.1
-Release: alt1
+Version: 0.2
+Release: eter1
 
 Summary: Etersoft ban service
 
@@ -80,20 +80,29 @@ install -m 644 prod-server/etc/fail2ban/jail.d/* %buildroot/etc/fail2ban/jail.d/
 cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
 %files gateway
-%config(noreplace) /etc/%name/eterban.conf
+%config(noreplace) /etc/%name/settings.ini
 %config(noreplace) /etc/fail2ban/action.d/ban.conf
 %config(noreplace) /etc/fail2ban/jail.d/blacklist.conf
 /etc/systemd/system/
+/var/log/eterban/
 %_datadir/%name/eterban_switcher.py
 
 %files web
 %webserver_htdocsdir/%name/
 
 %files fail2ban
-%config(noreplace) /etc/%name/eterban.conf
+%config(noreplace) /etc/%name/settings.ini
 %_datadir/%name/ban.py
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 %config(noreplace) /etc/fail2ban/jail.d/eterban.conf
+
 %changelog
+* Sun Nov 10 2019 Ruzal Gimazov <diff@etersoft.ru> 0.2-eter1
+- remove eterban.service on the prod-server
+- create rule on prod-serv in jail.d
+- add configparser, 2 functions with it, changed config name to settings.ini, created logfile
+- added configparser, renamed configfile to settings.ini, added new message to chanal 'by'
+- changed config
+
 * Sat Sep 07 2019 Vitaly Lipatov <lav@altlinux.ru> 0.1-alt1
 - initial build for ALT Sisyphus
