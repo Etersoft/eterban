@@ -5,6 +5,7 @@
  $redis = new Redis();
  $redis->pconnect($host_redis,6379);
  $redis->publish('unban', $ip);
+ $redis->publish('by', $ip . " was unblocked by ckick");
  $redis->close();
  echo "Wait 5 secons, please"
 ?>

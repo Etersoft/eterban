@@ -41,5 +41,9 @@ redis_server, hostname = get_ip_redis_server (path_to_config)
 
 r = redis.Redis (host=redis_server)
 r.publish ('ban', sys.argv[1])
-message = sys.argv[1] + " was blocked by " + hostname
+try:
+    message = sys.argv[1] + " was blocked by " + hostname + ": " + sys.argv[2]
+except:
+    message = sys.argv[1] + " was blocked by " + hostname + " (set block: [name=NAME_OF_RULE] on " + hostname + ":/etc/fail2ban/jail.conf)"
+
 r.publish ('by', message)

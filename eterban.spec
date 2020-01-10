@@ -35,7 +35,7 @@ Etersoft ban service.
 %package web
 Summary: Etersoft ban service: web
 Group: Development/Other
-Requires: php-redis
+Requires: php7-redis
 
 %description web
 Etersoft ban service.
@@ -59,23 +59,20 @@ Etersoft ban service.
 mkdir -p %buildroot%_datadir/%name/
 mkdir -p %buildroot/etc/%name/
 mkdir -p %buildroot/etc/fail2ban/action.d/
-mkdir -p %buildroot/etc/fail2ban/jail.d/
 mkdir -p %buildroot/etc/systemd/system/
 mkdir -p %buildroot/var/log/eterban/
 mkdir -p %buildroot%webserver_htdocsdir/%name/
-
+mkdir -p %buildroot/etc/fail2ban/jail.d/
 
 cp -a gateway/usr/share/%name/* %buildroot%_datadir/%name/
 install -m 644 gateway/etc/eterban/* %buildroot/etc/%name/
 install -m 644 gateway/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
 install -m 644 gateway/etc/fail2ban/jail.d/* %buildroot/etc/fail2ban/jail.d/
-
 install -m 644 gateway/etc/systemd/system/* %buildroot/etc/systemd/system/
 
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
 
 install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
-install -m 644 prod-server/etc/fail2ban/jail.d/* %buildroot/etc/fail2ban/jail.d/
 
 cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
@@ -94,7 +91,6 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/%name/settings.ini
 %_datadir/%name/ban.py
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
-%config(noreplace) /etc/fail2ban/jail.d/eterban.conf
 
 %changelog
 * Sun Nov 10 2019 Ruzal Gimazov <diff@etersoft.ru> 0.2-eter1

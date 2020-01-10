@@ -62,7 +62,7 @@ redis_server = get_ip_redis_server (path_to_config, path_to_log)
 
 
 
-print ("done!")
+#print ("done!")
 #print (time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime()))
 #subprocess.call ('ipset create blacklist hash:ip', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
 
