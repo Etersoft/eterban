@@ -1,4 +1,0 @@
-[eterban]
-enabled = false
-filter = nginx-limit-req
-action = eterban
