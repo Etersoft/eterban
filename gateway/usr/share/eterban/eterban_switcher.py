@@ -116,7 +116,7 @@ for message in p.listen():
     if message is not None and  message['type']=='message' and message['channel'] == b'ban':
         ip = message['data'].decode('utf-8')
         ip = message['data'].decode('utf-8')
-        ban = 'ipset -A blacklist ' + ip
+        ban = 'ipset -A eterban_1 ' + ip
         print (message)
         #ban = 'fail2ban-client set blacklist  banip ' + ip
         #subprocess.call (ban, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
@@ -127,7 +127,7 @@ for message in p.listen():
     elif message is not None and message['type'] =='message' and message['channel'] == b'unban' :
         print (message)
         ip = message['data'].decode('utf-8')
-        unban = 'ipset -D blacklist ' + ip
+        unban = 'ipset -D eterban_1 ' + ip
         #unban = 'fail2ban-client set blacklist unbanip ' + ip
         subprocess.call (unban, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
         #subprocess.call (unban, shell = True)
