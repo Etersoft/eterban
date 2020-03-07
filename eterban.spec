@@ -62,12 +62,9 @@ mkdir -p %buildroot/etc/fail2ban/action.d/
 mkdir -p %buildroot/etc/systemd/system/
 mkdir -p %buildroot/var/log/eterban/
 mkdir -p %buildroot%webserver_htdocsdir/%name/
-mkdir -p %buildroot/etc/fail2ban/jail.d/
 
 cp -a gateway/usr/share/%name/* %buildroot%_datadir/%name/
 install -m 644 gateway/etc/eterban/* %buildroot/etc/%name/
-install -m 644 gateway/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
-install -m 644 gateway/etc/fail2ban/jail.d/* %buildroot/etc/fail2ban/jail.d/
 install -m 644 gateway/etc/systemd/system/* %buildroot/etc/systemd/system/
 
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
@@ -78,8 +75,6 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
 %files gateway
 %config(noreplace) /etc/%name/settings.ini
-%config(noreplace) /etc/fail2ban/action.d/ban.conf
-%config(noreplace) /etc/fail2ban/jail.d/blacklist.conf
 /etc/systemd/system/
 /var/log/eterban/
 %_datadir/%name/eterban_switcher.py
