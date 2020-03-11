@@ -62,12 +62,14 @@ mkdir -p %buildroot/etc/fail2ban/action.d/
 mkdir -p %buildroot/etc/systemd/system/
 mkdir -p %buildroot/var/log/eterban/
 mkdir -p %buildroot%webserver_htdocsdir/%name/
+mkdir -p %buildroot/etc/nginx/sites-enabled.d/
 
 cp -a gateway/usr/share/%name/* %buildroot%_datadir/%name/
 install -m 644 gateway/etc/eterban/* %buildroot/etc/%name/
 install -m 644 gateway/etc/systemd/system/* %buildroot/etc/systemd/system/
 
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
+imstall -m 644 ban-server//etc/nginx/sites-enabled.d/* %buildroot/etc/nginx/sites-enabled.d/
 
 install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
 
