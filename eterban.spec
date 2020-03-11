@@ -1,6 +1,6 @@
 Name: eterban
 Version: 0.3
-Release: eter1
+Release: eter2
 
 Summary: Etersoft ban service
 
@@ -16,9 +16,10 @@ Source: %name-%version.tar
 BuildArchitectures: noarch
 
 # error: File must begin with "/": %webserver_htdocsdir/maintenance/
-BuildRequires: rpm-macros-webserver-common
+BuildRequires(pre): rpm-macros-webserver-common rpm-build-python3
 
 #Requires: python3 python3-module-redis-py
+%add_python3_lib_path /usr/share/eterban
 
 %description
 Etersoft ban service.
@@ -44,7 +45,8 @@ Etersoft ban service.
 %package fail2ban
 Summary: Etersoft ban service: fail2ban
 Group: Development/Other
-Requires: redis
+#Requires: redis
+
 %description fail2ban
 Etersoft ban service.
 
@@ -91,6 +93,9 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Wed Mar 11 2020 Ruzal Gimazov <diff@etersoft.ru> 0.3-eter2
+- Add requires python.
+
 * Wed Mar 11 2020 Ruzal Gimazov <diff@etersoft.ru> 0.3-eter1
 - add name to jail.conf
 - create normalin jail for ban
