@@ -69,7 +69,7 @@ install -m 644 gateway/etc/eterban/* %buildroot/etc/%name/
 install -m 644 gateway/etc/systemd/system/* %buildroot/etc/systemd/system/
 
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
-imstall -m 644 ban-server//etc/nginx/sites-enabled.d/* %buildroot/etc/nginx/sites-enabled.d/
+install -m 644 ban-server/etc/nginx/sites-enabled.d/* %buildroot/etc/nginx/sites-enabled.d/
 
 install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
 
@@ -83,6 +83,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
 %files web
 %webserver_htdocsdir/%name/
+%buildroot/etc/nginx/sites-enabled.d/
 
 %files fail2ban
 %config(noreplace) /etc/%name/settings.ini
