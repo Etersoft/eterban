@@ -6,7 +6,7 @@ import sys
 import configparser
 import os
 import signal
-
+import socket
 
 
 
@@ -17,7 +17,7 @@ def createConfig(path_to_config, path_to_log):
     config = configparser.ConfigParser()
     config.add_section("Settings")
     config.set("Settings", "redis_server", "10.20.30.101")
-    config.set("Settings", "hostname", "")
+    config.set("Settings", "hostname", socket.gethostname())
     
     with open(path_to_config, "w") as config_file:
         config.write(config_file)

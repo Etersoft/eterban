@@ -83,7 +83,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
 %files web
 %webserver_htdocsdir/%name/
-%buildroot/etc/nginx/sites-enabled.d/
+/etc/nginx/sites-enabled.d/
 
 %files fail2ban
 %config(noreplace) /etc/%name/settings.ini

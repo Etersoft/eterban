@@ -3,6 +3,7 @@ import redis
 import sys
 import configparser
 import os
+import socket
 
 def createConfig(path_to_config):
     """
@@ -11,7 +12,7 @@ def createConfig(path_to_config):
     config = configparser.ConfigParser()
     config.add_section("Settings")
     config.set("Settings", "redis_server", "10.20.30.101")
-    config.set("Settings", "hostname", "UNKNOWN")
+    config.set("Settings", "hostname", socket.gethostname())
     
     with open(path_to_config, "w") as config_file:
         config.write(config_file)
@@ -27,7 +28,7 @@ def get_ip_redis_server (path_to_config):
     # Читаем некоторые значения из конфиг. файла.
     
     redis_server = config.get("Settings", "redis_server", fallback = "No such things as redis_server")
-    hostname = config.get("Settings", "hostname", fallback = "No such things as hostname")
+    hostname = config.get("Settings", "hostname", fallback = socket.gethostname())
     if redis_server == "No such things as redis_server":
         config.set("Settings", "redis_server", "10.20.30.101")
         with open(path_to_config, "a") as config_file:
