@@ -1,5 +1,5 @@
 Name: eterban
-Version: 0.2
+Version: 0.3
 Release: eter1
 
 Summary: Etersoft ban service
@@ -91,6 +91,13 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Wed Mar 11 2020 Ruzal Gimazov <diff@etersoft.ru> 0.3-eter1
+- add name to jail.conf
+- create normalin jail for ban
+- remove fail2ban from my project. Update eterban_switcher.py
+- add /etc/nginx/sites-enabled/eterban.conf
+- update hostname in ban.py
+
 * Sun Nov 10 2019 Ruzal Gimazov <diff@etersoft.ru> 0.2-eter1
 - remove eterban.service on the prod-server
 - create rule on prod-serv in jail.d
