@@ -36,7 +36,7 @@ Etersoft ban service.
 %package web
 Summary: Etersoft ban service: web
 Group: Development/Other
-Requires: php7-redis
+Requires: nginx,php7-redis
 
 %description web
 Etersoft ban service.
@@ -45,7 +45,7 @@ Etersoft ban service.
 %package fail2ban
 Summary: Etersoft ban service: fail2ban
 Group: Development/Other
-#Requires: redis
+Requires: fail2ban
 
 %description fail2ban
 Etersoft ban service.
@@ -86,6 +86,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %files web
 %webserver_htdocsdir/%name/
 /etc/nginx/sites-enabled.d/
+%config(noreplace) /etc/%name/settings.ini
 
 %files fail2ban
 %config(noreplace) /etc/%name/settings.ini
