@@ -1,6 +1,6 @@
 Name: eterban
-Version: 0.3
-Release: eter2
+Version: 0.4
+Release: eter1
 
 Summary: Etersoft ban service
 
@@ -28,6 +28,7 @@ Etersoft ban service.
 %package gateway
 Summary: Etersoft ban service: gateway
 Group: Development/Other
+Requires: iptables,ipset
 
 %description gateway
 Etersoft ban service.
@@ -94,6 +95,14 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Fri Mar 13 2020 Ruzal Gimazov <diff@etersoft.ru> 0.4-eter1
+- fix prod-server/etc/eterban/settings.ini
+- add new file
+- update readme.md
+- update README.md
+- update README.md
+- update settings.ini, code review in eterban_switcher.py, create ipset dump before exit
+
 * Wed Mar 11 2020 Ruzal Gimazov <diff@etersoft.ru> 0.3-eter2
 - Add requires python.
 
