@@ -8,46 +8,9 @@ import os
 import signal
 import socket
 
-
-
-def createConfig(path_to_config, path_to_log):
-    """
-    Create a config file
-    """
-    config = configparser.ConfigParser()
-    config.add_section("Settings")
-    config.set("Settings", "redis_server", "10.20.30.101")
-    config.set("Settings", "hostname", socket.gethostname())
-    
-    with open(path_to_config, "w") as config_file:
-        config.write(config_file)
-    info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
-    info +=" Created a config file (" + path_to_config + "). Update him!"
-    with open(path_to_log, "a") as log_file:
-        log_file.write(info)
-    sys.exit()
-
-def get_ip_redis_server (path_to_config, path_to_log):
-    if not os.path.exists(path_to_config):
-        createConfig (path_to_config, path_to_log)
-
-    config = configparser.ConfigParser()
-    config.read(path_to_config)
-
-    # Читаем некоторые значения из конфиг. файла.
-    
-    redis_server = config.get("Settings", "redis_server", fallback = "No such things as redis_server")
-    if redis_server == "No such things as redis_server":
-        config.set("Settings", "redis_server", "10.20.30.101")
-        with open(path_to_config, "w") as config_file:
-            config_file.write(config)
-        info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
-        info +=" " + redis_server + ". Added to config file (" + path_to_config + ") redis_server. Update him!"
-        with open(path_to_log, "a") as log_file:
-            log_file.write(info)
-        sys.exit()
-    else:
-        return (redis_server)
+path_to_config = '/etc/eterban/settings.ini'
+path_to_eterban = '/usr/share/eterban/'
+ipset_eterban_1 = 'eterban_1'
 
 try:
     path_to_log = '/var/log/eterban/eterban.log'
@@ -60,29 +23,66 @@ except:
         print ("Unknown error with logfile")
         sys.exit()
 
-def restore_ipset_eterban_1():
-    command='ipset restore --file /usr/share/eterban/eterban_1'
+
+def parse_config (path_to_config, path_to_log):
+    if not os.path.exists(path_to_config):
+        info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
+        info +=' ' + 'Problem in config file (' + path_to_config + '). Check him!'
+        with open(path_to_log, "a") as log_file:
+            log_file.write(info)
+        sys.exit()
+
+    config = configparser.ConfigParser()
+    config.read(path_to_config)
+
+    # Читаем некоторые значения из конфиг. файла.
+    
+    redis_server = config.get("Settings", "redis_server", fallback = "redis_server")
+    ban_server = config.get("Settings", "ban_server", fallback = "ban_server")
+    i_interface = config.get("Settings", "i_interface", fallback = "i_interface")
+    if redis_server == "redis_server" or ban_server == "ban_server" or i_interface == "i_interface":
+        #config.set("Settings", "redis_server", "10.20.30.101")
+        #with open(path_to_config, "w") as config_file:
+        #    config_file.write(config)
+        info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
+        info +=' ' + 'Problem in config file (' + path_to_config + '). Check him!'
+        with open(path_to_log, "a") as log_file:
+            log_file.write(info)
+        sys.exit()
+    else:
+        return (redis_server, ban_server, i_interface)
+
+def save_ipset_eterban_1():
+    global ipset_eterban_1, path_to_eterban
+    command = 'ipset save ' + ipset_eterban_1 + ' --file ' + path_to_eterban + ipset_eterban_1
+    subprocess.call (command, shell = True)
+
+def restore_ipset_eterban_1(path_to_eterban, ipset_eterban_1):
+    command='ipset restore --file ' + path_to_eterban + ipset_eterban_1
     subprocess.call (command, shell = True)
 
 def create_iptables_rules():
-    commands=["ipset --create eterban_1 iphash",
-        'iptables -t nat -I PREROUTING -i brlocal -m set --match-set eterban_1 src -j DNAT --to-destination 91.232.225.67',
-        'iptables -t nat -I PREROUTING -i brlocal -m set ! --match-set eterban_1 src -d 91.232.225.67 -p tcp -m multiport --destination-port 80,443 -j DNAT --to-destination 91.232.225.67:81',
-        'iptables -I FORWARD -i brlocal -p tcp -m multiport ! --dport 80,81,443 -m set --match-set eterban_1 src -j REJECT']
+    global ban_server, ipset_eterban_1, i_interface
+    commands=['ipset --create ' + ipset_eterban_1 + ' iphash',
+        'iptables -t nat -I PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
+        'iptables -t nat -I PREROUTING -i ' + i_interface + ' -m set ! --match-set ' + ipset_eterban_1 + ' src -d ' + ban_server + ' -p tcp -m multiport --destination-port 80,443 -j DNAT --to-destination ' + ban_server + ':81',
+        'iptables -I FORWARD -i ' + i_interface + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT']
     for command in commands:
         subprocess.call (command, shell = True)
 
 def destroy_iptables_rules ():
-    commands=['iptables -t nat -D PREROUTING -i brlocal -m set --match-set eterban_1 src -j DNAT --to-destination 91.232.225.67',
-        'iptables -t nat -D PREROUTING -i brlocal -m set ! --match-set eterban_1 src -d 91.232.225.67 -p tcp -m multiport --destination-port 80,443 -j DNAT --to-destination 91.232.225.67:81',
-        'iptables -D FORWARD -i brlocal -p tcp -m multiport ! --dport 80,81,443 -m set --match-set eterban_1 src -j REJECT',
-        'ipset destroy eterban_1']
+    global ban_server, ipset_eterban_1, i_interface
+    commands=['ipset destroy ' + ipset_eterban_1,
+        'iptables -t nat -D PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
+        'iptables -t nat -D PREROUTING -i ' + i_interface + ' -m set ! --match-set ' + ipset_eterban_1 + ' src -d ' + ban_server + ' -p tcp -m multiport --destination-port 80,443 -j DNAT --to-destination ' + ban_server + ':81',
+        'iptables -D FORWARD -i ' + i_interface + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT',]
 
     for command in commands:
         subprocess.call (command, shell = True)
         #print (command)
 
 def exit_gracefully(signum, frame):
+    save_ipset_eterban_1()
     destroy_iptables_rules()
     print ("End of the program. I was killed with ", signum,'\n')
     sys.exit()
@@ -92,9 +92,10 @@ signal.signal(signal.SIGQUIT, exit_gracefully)
 signal.signal(signal.SIGTERM, exit_gracefully)
 
 
-path_to_config = '/etc/eterban/settings.ini'
-redis_server = get_ip_redis_server (path_to_config, path_to_log)
+print ('1')
+redis_server, ban_server, i_interface = parse_config (path_to_config, path_to_log)
 
+#destroy_iptables_rules ()
 print ("done!")
 #print (time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime()))
 #subprocess.call ('ipset create blacklist hash:ip', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
@@ -108,7 +109,7 @@ except:
     print ("Enable to connect redes")
     sys.exit()
 
-restore_ipset_eterban_1()
+restore_ipset_eterban_1(path_to_eterban, ipset_eterban_1)
 create_iptables_rules()
 
 
@@ -116,7 +117,8 @@ for message in p.listen():
     if message is not None and  message['type']=='message' and message['channel'] == b'ban':
         ip = message['data'].decode('utf-8')
         ip = message['data'].decode('utf-8')
-        ban = 'ipset -A eterban_1 ' + ip
+        ban = 'ipset -A ' + ipset_eterban_1 + ' ' + ip
+        print (ban)
         print (message)
         #ban = 'fail2ban-client set blacklist  banip ' + ip
         #subprocess.call (ban, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
@@ -127,7 +129,7 @@ for message in p.listen():
     elif message is not None and message['type'] =='message' and message['channel'] == b'unban' :
         print (message)
         ip = message['data'].decode('utf-8')
-        unban = 'ipset -D eterban_1 ' + ip
+        unban = 'ipset -D ' + ipset_eterban_1 + ' ' + ip
         #unban = 'fail2ban-client set blacklist unbanip ' + ip
         subprocess.call (unban, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
         #subprocess.call (unban, shell = True)
