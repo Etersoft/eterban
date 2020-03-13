@@ -24,29 +24,33 @@ BuildRequires(pre): rpm-macros-webserver-common rpm-build-python3
 %description
 Etersoft ban service.
 
+%package common
+Summary: Etersoft ban service: common
+Group: Development/Other
+
+%description common
+Etersoft ban service. Common files
 
 %package gateway
 Summary: Etersoft ban service: gateway
 Group: Development/Other
-Requires: iptables,ipset
+Requires: eterban-common,iptables,ipset
 
 %description gateway
-Etersoft ban service.
-
+Etersoft ban service
 
 %package web
 Summary: Etersoft ban service: web
 Group: Development/Other
-Requires: nginx,php7-redis
+Requires: eterban-common,nginx,php7-redis
 
 %description web
 Etersoft ban service.
 
-
 %package fail2ban
 Summary: Etersoft ban service: fail2ban
 Group: Development/Other
-Requires: fail2ban
+Requires: eterban-common,fail2ban
 
 %description fail2ban
 Etersoft ban service.
@@ -68,7 +72,9 @@ mkdir -p %buildroot%webserver_htdocsdir/%name/
 mkdir -p %buildroot/etc/nginx/sites-enabled.d/
 
 cp -a gateway/usr/share/%name/* %buildroot%_datadir/%name/
-install -m 644 gateway/etc/eterban/* %buildroot/etc/%name/
+
+install -m 644 common/etc/eterban/* %buildroot/etc/%name/
+
 install -m 644 gateway/etc/systemd/system/* %buildroot/etc/systemd/system/
 
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
@@ -78,8 +84,11 @@ install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/actio
 
 cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
-%files gateway
+
+%files common
 %config(noreplace) /etc/%name/settings.ini
+
+%files gateway
 /etc/systemd/system/
 /var/log/eterban/
 %_datadir/%name/eterban_switcher.py
@@ -87,21 +96,16 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %files web
 %webserver_htdocsdir/%name/
 /etc/nginx/sites-enabled.d/
-%config(noreplace) /etc/%name/settings.ini
 
 %files fail2ban
-%config(noreplace) /etc/%name/settings.ini
 %_datadir/%name/ban.py
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
 * Fri Mar 13 2020 Ruzal Gimazov <diff@etersoft.ru> 0.4-eter1
-- fix prod-server/etc/eterban/settings.ini
-- add new file
-- update readme.md
+- Update settings.ini
 - update README.md
-- update README.md
-- update settings.ini, code review in eterban_switcher.py, create ipset dump before exit
+- Create ipset dump before exit and restore after start
 
 * Wed Mar 11 2020 Ruzal Gimazov <diff@etersoft.ru> 0.3-eter2
 - Add requires python.
