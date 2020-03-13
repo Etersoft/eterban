@@ -1,6 +1,6 @@
 Name: eterban
 Version: 0.4
-Release: eter1
+Release: eter2
 
 Summary: Etersoft ban service
 
@@ -102,6 +102,9 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Fri Mar 13 2020 Ruzal Gimazov <diff@etersoft.ru> 0.4-eter2
+- create common package
+
 * Fri Mar 13 2020 Ruzal Gimazov <diff@etersoft.ru> 0.4-eter1
 - Update settings.ini
 - update README.md
