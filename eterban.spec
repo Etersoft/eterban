@@ -34,7 +34,7 @@ Etersoft ban service. Common files
 %package gateway
 Summary: Etersoft ban service: gateway
 Group: Development/Other
-Requires: eterban-common,iptables,ipset
+Requires: eterban-common,iptables,ipset,conntrack-tools,python3-module-redis
 
 %description gateway
 Etersoft ban service
@@ -50,7 +50,7 @@ Etersoft ban service.
 %package fail2ban
 Summary: Etersoft ban service: fail2ban
 Group: Development/Other
-Requires: eterban-common,fail2ban
+Requires: eterban-common,fail2ban-server
 
 %description fail2ban
 Etersoft ban service.
@@ -65,6 +65,7 @@ Etersoft ban service.
 #install -m644 include/limits/* %buildroot%_sysconfdir/nginx/include/limits/
 mkdir -p %buildroot%_datadir/%name/
 mkdir -p %buildroot/etc/%name/
+mkdir -p %buildroot/etc/cron.hourly/
 mkdir -p %buildroot/etc/fail2ban/action.d/
 mkdir -p %buildroot/etc/systemd/system/
 mkdir -p %buildroot/var/log/eterban/
@@ -76,6 +77,7 @@ cp -a gateway/usr/share/%name/* %buildroot%_datadir/%name/
 install -m 644 common/etc/eterban/* %buildroot/etc/%name/
 
 install -m 644 gateway/etc/systemd/system/* %buildroot/etc/systemd/system/
+install -m 644 gateway/etc/cron.hourly/* %buildroot/etc/cron.hourly/
 
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
 install -m 644 ban-server/etc/nginx/sites-enabled.d/* %buildroot/etc/nginx/sites-enabled.d/
@@ -91,6 +93,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %files gateway
 /etc/systemd/system/
 /var/log/eterban/
+/etc/cron.hourly/
 %_datadir/%name/eterban_switcher.py
 
 %files web
