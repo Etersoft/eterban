@@ -1,6 +1,6 @@
 Name: eterban
-Version: 0.4
-Release: eter2
+Version: 0.5
+Release: alt1
 
 Summary: Etersoft ban service
 
@@ -34,7 +34,8 @@ Etersoft ban service. Common files
 %package gateway
 Summary: Etersoft ban service: gateway
 Group: Development/Other
-Requires: eterban-common,iptables,ipset,conntrack-tools,python3-module-redis
+Requires: eterban-common = %EVR
+Requires: iptables,ipset,conntrack-tools,python3-module-redis
 
 %description gateway
 Etersoft ban service
@@ -42,7 +43,8 @@ Etersoft ban service
 %package web
 Summary: Etersoft ban service: web
 Group: Development/Other
-Requires: eterban-common,nginx,php7-redis
+Requires: eterban-common = %EVR
+Requires: nginx,php7-redis
 
 %description web
 Etersoft ban service.
@@ -50,7 +52,8 @@ Etersoft ban service.
 %package fail2ban
 Summary: Etersoft ban service: fail2ban
 Group: Development/Other
-Requires: eterban-common,fail2ban-server
+Requires: eterban-common = %EVR
+Requires: fail2ban-server
 
 %description fail2ban
 Etersoft ban service.
@@ -67,7 +70,7 @@ mkdir -p %buildroot%_datadir/%name/
 mkdir -p %buildroot/etc/%name/
 mkdir -p %buildroot/etc/cron.hourly/
 mkdir -p %buildroot/etc/fail2ban/action.d/
-mkdir -p %buildroot/etc/systemd/system/
+mkdir -p %buildroot%systemd_unitdir
 mkdir -p %buildroot/var/log/eterban/
 mkdir -p %buildroot%webserver_htdocsdir/%name/
 mkdir -p %buildroot/etc/nginx/sites-enabled.d/
@@ -76,7 +79,7 @@ cp -a gateway/usr/share/%name/* %buildroot%_datadir/%name/
 
 install -m 644 common/etc/eterban/* %buildroot/etc/%name/
 
-install -m 644 gateway/etc/systemd/system/* %buildroot/etc/systemd/system/
+install -m 644 gateway/etc/systemd/system/* %buildroot/%systemd_unitdir
 install -m 644 gateway/etc/cron.hourly/* %buildroot/etc/cron.hourly/
 
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
@@ -91,20 +94,27 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/%name/settings.ini
 
 %files gateway
-/etc/systemd/system/
-/var/log/eterban/
-/etc/cron.hourly/
+%systemd_unitdir/eterban.service
+%dir /var/log/eterban/
+%config(noreplace) /etc/cron.hourly/get_firehol_ip.sh
+%dir %_datadir/%name/
 %_datadir/%name/eterban_switcher.py
 
 %files web
 %webserver_htdocsdir/%name/
-/etc/nginx/sites-enabled.d/
+%config(noreplace) /etc/nginx/sites-enabled.d/eterban.conf
 
 %files fail2ban
 %_datadir/%name/ban.py
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Sat Mar 26 2022 Vitaly Lipatov <lav@altlinux.ru> 0.5-alt1
+- update README.md
+- ban.php: get ip font settings.ini
+- ban.py: drop config creating
+- cleanup packing
+
 * Fri Mar 13 2020 Ruzal Gimazov <diff@etersoft.ru> 0.4-eter2
 - create common package
 
