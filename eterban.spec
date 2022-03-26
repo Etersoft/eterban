@@ -1,6 +1,6 @@
 Name: eterban
 Version: 0.5
-Release: alt1
+Release: alt2
 
 Summary: Etersoft ban service
 
@@ -29,7 +29,7 @@ Summary: Etersoft ban service: common
 Group: Development/Other
 
 %description common
-Etersoft ban service. Common files
+Etersoft ban service. Common files.
 
 %package gateway
 Summary: Etersoft ban service: gateway
@@ -38,7 +38,7 @@ Requires: eterban-common = %EVR
 Requires: iptables,ipset,conntrack-tools,python3-module-redis
 
 %description gateway
-Etersoft ban service
+Etersoft ban service.
 
 %package web
 Summary: Etersoft ban service: web
@@ -53,7 +53,7 @@ Etersoft ban service.
 Summary: Etersoft ban service: fail2ban
 Group: Development/Other
 Requires: eterban-common = %EVR
-Requires: fail2ban-server
+Requires: fail2ban
 
 %description fail2ban
 Etersoft ban service.
@@ -109,6 +109,9 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Sat Mar 26 2022 Vitaly Lipatov <lav@altlinux.ru> 0.5-alt2
+- fix fail2ban require
+
 * Sat Mar 26 2022 Vitaly Lipatov <lav@altlinux.ru> 0.5-alt1
 - update README.md
 - ban.php: get ip font settings.ini
