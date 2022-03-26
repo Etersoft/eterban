@@ -3,8 +3,12 @@
 $ip = $_SERVER['REMOTE_ADDR'];
 echo "You are banned!, Your IP: $ip <br>";
 
+$settings = '/etc/eterban/settings.ini';
+$ini_array = parse_ini_file ("$settings");
+$host_redis = $ini_array['redis_server'];
+
 $redis = new Redis;
-$redis->pconnect ('192.168.0.99',6379);
+$redis->pconnect ($host_redis,6379);
 $key = $redis->get($ip);
 ?>
 
