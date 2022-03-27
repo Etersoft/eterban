@@ -1,14 +1,12 @@
 Name: eterban
-Version: 0.5
-Release: alt2
+Version: 0.6
+Release: alt1
 
 Summary: Etersoft ban service
 
 License: AGPLv3
 Group: Development/Other
 Url: http://wiki.etersoft.ru/eterban
-
-Packager: Ruzal Gimazov <diff@etersoft.ru>
 
 # Source-git: https://gitlab.eterfund.ru/diff/eterban.git
 Source: %name-%version.tar
@@ -35,7 +33,7 @@ Etersoft ban service. Common files.
 Summary: Etersoft ban service: gateway
 Group: Development/Other
 Requires: eterban-common = %EVR
-Requires: iptables,ipset,conntrack-tools,python3-module-redis
+Requires: iptables ipset conntrack-tools
 
 %description gateway
 Etersoft ban service.
@@ -75,6 +73,7 @@ mkdir -p %buildroot/var/log/eterban/
 mkdir -p %buildroot%webserver_htdocsdir/%name/
 mkdir -p %buildroot/etc/nginx/sites-enabled.d/
 
+install -m 755 -D gateway/usr/bin/eterban.sh %buildroot%_bindir/%name
 cp -a gateway/usr/share/%name/* %buildroot%_datadir/%name/
 
 install -m 644 common/etc/eterban/* %buildroot/etc/%name/
@@ -95,10 +94,12 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
 %files gateway
 %systemd_unitdir/eterban.service
+%_bindir/eterban
 %dir /var/log/eterban/
 %config(noreplace) /etc/cron.hourly/get_firehol_ip.sh
 %dir %_datadir/%name/
 %_datadir/%name/eterban_switcher.py
+%_datadir/%name/unban.py
 
 %files web
 %webserver_htdocsdir/%name/
@@ -109,6 +110,10 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Sun Mar 27 2022 Vitaly Lipatov <lav@altlinux.ru> 0.6-alt1
+- add unban.py for gateway target
+- add eterban cli for gateway target
+
 * Sat Mar 26 2022 Vitaly Lipatov <lav@altlinux.ru> 0.5-alt2
 - fix fail2ban require
 
