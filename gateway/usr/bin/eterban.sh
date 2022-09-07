@@ -21,6 +21,11 @@ if [ "$command" = "unban" ] ; then
     exit
 fi
 
+if [ "$command" = "ban" ] ; then
+    /usr/share/eterban/ban.py $1 "blocked with eterban manually"
+    exit
+fi
+
 if [ "$command" = "search" ] ; then
     mask="$(echo "$1" | sed -e 's|\.|\\.|g')"
     ipset list $setname | grep --color "$mask"
@@ -35,4 +40,5 @@ Usage:
        list        - list all banned IPs
        search <ip> - search for ip in the list of banned IPs
        unban <ip>  - unban IP
+       ban <ip>    - ban IP
 EOF
