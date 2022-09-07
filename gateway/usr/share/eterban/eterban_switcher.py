@@ -70,9 +70,10 @@ def restore_ipset_eterban_1():
 
 def create_iptables_rules():
     global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, i_interface
-    commands=['ipset create ' + ipset_eterban_1 + ' iphash',
+    # set maxelem in config
+    commands=['ipset create ' + ipset_eterban_1 + ' hash:ip maxelem 650000',
         'ipset create ' + ipset_firehol + ' hash:net',
-        'ipset create ' + ipset_eterban_white + ' iphash',
+        'ipset create ' + ipset_eterban_white + ' hash:ip',
         'iptables -t nat -I PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
         'iptables -t nat -I PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
         'iptables -t nat -I PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
