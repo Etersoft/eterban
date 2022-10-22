@@ -1,18 +1,22 @@
 #!/bin/sh
 
 setname="eterban_1"
+setname_ipv6="eterban_1_ipv6"
 
 command="$1"
 [ -n "$command" ] && shift
 
 if [ "$command" = "count" ] ; then
     echo "Count of banned:"
+    # TODO: some quiet to ignore headers
     ipset list $setname | wc -l
+    ipset list $setname_ipv6 | wc -l
     exit
 fi
 
 if [ "$command" = "list" ] ; then
     ipset list $setname
+    ipset list $setname_ipv6
     exit
 fi
 
@@ -29,6 +33,7 @@ fi
 if [ "$command" = "search" ] ; then
     mask="$(echo "$1" | sed -e 's|\.|\\.|g')"
     ipset list $setname | grep --color "$mask"
+    ipset list $setname_ipv6 | grep --color "$mask"
     exit
 fi
 
