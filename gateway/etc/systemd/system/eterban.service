@@ -2,6 +2,7 @@
 Description= Start eterban_switcher.py
 
 [Service]
+Restart=always
 ExecStart=/usr/share/eterban/eterban_switcher.py
 
 [Install]
