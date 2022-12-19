@@ -1,5 +1,6 @@
 [Unit]
-Description= Start eterban_switcher.py
+Description=eterban switcher
+After=syslog.target network.target
 
 [Service]
 Restart=always
