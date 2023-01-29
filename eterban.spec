@@ -1,5 +1,5 @@
 Name: eterban
-Version: 0.7
+Version: 0.8
 Release: alt1
 
 Summary: Etersoft ban service
@@ -116,6 +116,14 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Sun Jan 29 2023 Vitaly Lipatov <lav@altlinux.ru> 0.8-alt1
+- add i_interface2 support
+- index.html: update text
+- add IPv6 support
+- eterban.service: add Restart=always
+- eterban.service: add After:
+- eterban.spec: add post/preun service section
+
 * Wed Sep 07 2022 Vitaly Lipatov <lav@altlinux.ru> 0.7-alt1
 - eterban.sh: add ban for ban manually
 - eterban_switcher: increase maxelem
