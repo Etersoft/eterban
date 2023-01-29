@@ -88,6 +88,12 @@ install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/actio
 
 cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
+%post gateway
+%post_service %name
+
+%preun gateway
+%preun_service %name
+
 
 %files common
 %config(noreplace) /etc/%name/settings.ini
