@@ -9,8 +9,8 @@ command="$1"
 if [ "$command" = "count" ] ; then
     echo "Count of banned:"
     # TODO: some quiet to ignore headers
-    ipset list $setname | wc -l
-    ipset list $setname_ipv6 | wc -l
+    echo "$setname: $(ipset list $setname | wc -l)"
+    echo "$setname_ipv6: $(ipset list $setname_ipv6 | wc -l)"
     exit
 fi
 
