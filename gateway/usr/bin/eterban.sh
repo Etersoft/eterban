@@ -37,6 +37,12 @@ if [ "$command" = "search" ] ; then
     exit
 fi
 
+if [ "$command" = "clear" ] ; then
+    ipset flush $setname
+    ipset flush $setname_ipv6
+    exit
+fi
+
 cat <<EOF
 Usage:
     eterban [count|list|search <ip>]
@@ -46,4 +52,5 @@ Usage:
        search <ip> - search for ip in the list of banned IPs
        unban <ip>  - unban IP
        ban <ip>    - ban IP
+       clear       - remove all IPs from ban
 EOF
