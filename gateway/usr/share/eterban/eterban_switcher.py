@@ -226,8 +226,8 @@ try:
 
     p.subscribe('ban', 'unban', 'by')
 except:
-    print ("Enable to connect redes")
-    sys.exit()
+    print ("Unable to connect redis")
+    sys.exit(1)
 
 restore_ipset_eterban_1()
 create_iptables_rules()
