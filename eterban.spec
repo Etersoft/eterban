@@ -1,4 +1,4 @@
-%define defphp php8.1
+%define defphp php%php_defver
 
 Name: eterban
 Version: 0.9
@@ -16,7 +16,8 @@ Source: %name-%version.tar
 BuildArchitectures: noarch
 
 # error: File must begin with "/": %webserver_htdocsdir/maintenance/
-BuildRequires(pre): rpm-macros-webserver-common rpm-build-python3
+BuildRequires(pre): rpm-macros-webserver-common
+BuildRequires(pre): rpm-build-python3 rpm-macros-php
 
 #Requires: python3 python3-module-redis-py
 %add_python3_lib_path /usr/share/eterban
