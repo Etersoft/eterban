@@ -43,14 +43,41 @@ if [ "$command" = "clear" ] ; then
     exit
 fi
 
+if [ "$command" = "info" ] ; then
+    /usr/share/eterban/autoban_cli.py info $1
+    exit
+fi
+
+if [ "$command" = "reset" ] ; then
+    /usr/share/eterban/autoban_cli.py reset $1
+    exit
+fi
+
+if [ "$command" = "pending" ] ; then
+    /usr/share/eterban/autoban_cli.py pending
+    exit
+fi
+
+if [ "$command" = "permanent" ] ; then
+    /usr/share/eterban/autoban_cli.py permanent
+    exit
+fi
+
 cat <<EOF
 Usage:
-    eterban [count|list|search <ip>]
+    eterban <command> [args]
 
-       count       - print count of banned IPs
-       list        - list all banned IPs
-       search <ip> - search for ip in the list of banned IPs
-       unban <ip>  - unban IP
-       ban <ip>    - ban IP
-       clear       - remove all IPs from ban
+Commands:
+    count         - print count of banned IPs
+    list          - list all banned IPs
+    search <ip>   - search for ip in the list of banned IPs
+    unban <ip>    - unban IP
+    ban <ip>      - ban IP
+    clear         - remove all IPs from ban
+
+Auto-unban commands:
+    info <ip>     - show ban info and history for IP
+    reset <ip>    - reset offense counter for IP
+    pending       - list pending auto-unbans
+    permanent     - list permanent bans
 EOF

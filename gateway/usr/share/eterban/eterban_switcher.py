@@ -8,6 +8,9 @@ import os
 import signal
 import socket
 import ipaddress
+import threading
+import re
+from autoban_manager import AutoBanManager
 
 path_to_config      = '/etc/eterban/settings.ini'
 path_to_eterban     = '/usr/share/eterban/'
@@ -229,6 +232,40 @@ except:
     print ("Unable to connect redis")
     sys.exit(1)
 
+# Инициализация AutoBanManager
+config = configparser.ConfigParser()
+config.read(path_to_config)
+auto_mgr = AutoBanManager(r, config)
+
+def auto_unban_checker():
+    """Фоновый поток для проверки и выполнения авто-разбанов."""
+    while True:
+        time.sleep(auto_mgr.check_interval)
+        if not auto_mgr.enabled:
+            continue
+
+        try:
+            expired = auto_mgr.get_expired_bans()
+            for ip in expired:
+                # Публикуем разбан
+                r.publish('unban', ip)
+                r.publish('by', f"{ip} auto-unbanned after ban period expired")
+                auto_mgr.remove_from_schedule(ip)
+                info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                info += f" {ip} auto-unbanned\n"
+                log.write(info)
+                log.flush()
+        except Exception as e:
+            info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            info += f" auto_unban_checker error: {e}\n"
+            log.write(info)
+            log.flush()
+
+# Запуск фонового потока
+if auto_mgr.enabled:
+    checker_thread = threading.Thread(target=auto_unban_checker, daemon=True)
+    checker_thread.start()
+
 restore_ipset_eterban_1()
 create_iptables_rules()
 create_ip6tables_rules()
@@ -253,22 +290,49 @@ for message in p.listen():
     elif message is not None and message['type'] =='message' and message['channel'] == b'unban' :
         print (message)
         ip = message['data'].decode('utf-8')
-        ipo = ipaddress.ip_address(ip)
+        ipo = ipaddress.ip_network(ip, strict=False)
         if isinstance(ipo, ipaddress.IPv6Address):
             unban = 'ipset -D ' + ipset_eterban_1_ipv6 + ' ' + ip
-        else:
+        elif isinstance(ipo, ipaddress.IPv4Network):
             unban = 'ipset -D ' + ipset_eterban_1 + ' ' + ip
+        else:
+            log.write("Not parsed as IP, skipped " + str(ip) + '\n')
         #add   = 'ipset -A ' + ipset_eterban_white + ' ' + ip
         subprocess.call (unban, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
         #subprocess.call (add, shell = True)
         tcp_drop = 'conntrack -D -s ' + ip
         subprocess.Popen(tcp_drop, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
+
+        # AutoBan: обновляем метаданные (убираем из расписания)
+        if auto_mgr.enabled:
+            auto_mgr.on_unban(ip)
     elif message is not None and message['type'] =='message' and message['channel'] == b'by':
+        by_msg = message['data'].decode('utf-8')
         info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
-        info += " " + message['data'].decode('utf-8') + "\n"
+        info += " " + by_msg + "\n"
         print (info)
         log.write(info)
         log.flush()
+
+        # AutoBan: парсим сообщение и сохраняем метаданные
+        # Формат: "IP was blocked by HOSTNAME: REASON" или "IP was blocked by HOSTNAME (...)"
+        if auto_mgr.enabled:
+            match = re.match(r'^(\S+) was blocked by ([^:]+)(?:: (.+))?$', by_msg)
+            if match:
+                ip = match.group(1)
+                source = match.group(2).strip()
+                reason = match.group(3) if match.group(3) else 'auto'
+                meta = auto_mgr.on_ban(ip, source=source, reason=reason)
+                if meta:
+                    ban_duration = meta.get('unban_time', 0) - int(time.time())
+                    offense = meta.get('offense_count', 1)
+                    if ban_duration > 0:
+                        auto_info = f"  -> offense #{offense}, auto-unban in {auto_mgr.format_duration(ban_duration)}\n"
+                    else:
+                        auto_info = f"  -> offense #{offense}, PERMANENT ban\n"
+                    print(auto_info)
+                    log.write(auto_info)
+                    log.flush()
     elif message is not None:
         print ("AHTUNG!!1!", message)
         info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
