@@ -88,6 +88,11 @@ install -m 644 gateway/etc/cron.hourly/* %buildroot/etc/cron.hourly/
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
 install -m 644 ban-server/etc/nginx/sites-enabled.d/* %buildroot/etc/nginx/sites-enabled.d/
 
+mkdir -p %buildroot%webserver_htdocsdir/%name-internal/
+mkdir -p %buildroot/etc/nginx/sites-available.d/
+install -m 644 ban-internal-server/data/www/* %buildroot%webserver_htdocsdir/%name-internal/
+install -m 644 ban-internal-server/etc/nginx/sites-enabled.d/eterban.conf %buildroot/etc/nginx/sites-available.d/eterban-internal.conf
+
 install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
 
 cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
@@ -116,7 +121,9 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
 %files web
 %webserver_htdocsdir/%name/
+%webserver_htdocsdir/%name-internal/
 %config(noreplace) /etc/nginx/sites-enabled.d/eterban.conf
+%config(noreplace) /etc/nginx/sites-available.d/eterban-internal.conf
 
 %files fail2ban
 %_datadir/%name/ban.py
