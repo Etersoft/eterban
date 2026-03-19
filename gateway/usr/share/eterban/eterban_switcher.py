@@ -49,6 +49,7 @@ def parse_config (path_to_config, path_to_log):
     ban_server_ipv6 = config.get("Settings", "ban_server_ipv6", fallback = "")
     i_interface = config.get("Settings", "i_interface", fallback = "i_interface")
     i_interface2 = config.get("Settings", "i_interface2", fallback = "")
+    internal_interface = config.get("Settings", "internal_interface", fallback = "")
     if redis_server == "redis_server" or ban_server == "ban_server" or i_interface == "i_interface":
         #config.set("Settings", "redis_server", "10.20.30.101")
         #with open(path_to_config, "w") as config_file:
@@ -60,7 +61,7 @@ def parse_config (path_to_config, path_to_log):
         sys.exit()
     else:
         maxelem = config.getint("Settings", "maxelem", fallback=2000000)
-        return (redis_server, ban_server, ban_server_ipv6, i_interface, i_interface2, maxelem)
+        return (redis_server, ban_server, ban_server_ipv6, i_interface, i_interface2, internal_interface, maxelem)
 
 def save_ipset_eterban_1():
     global ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol, ipset_eterban_white, path_to_eterban
@@ -77,7 +78,7 @@ def restore_ipset_eterban_1():
         subprocess.call (command, shell = True)
 
 def create_iptables_rules():
-    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, i_interface, i_interface2, maxelem
+    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, i_interface, i_interface2, internal_interface, maxelem
     commands=['ipset create ' + ipset_eterban_1 + ' hash:ip maxelem ' + str(maxelem),
         'ipset create ' + ipset_firehol + ' hash:net',
         'ipset create ' + ipset_eterban_white + ' hash:ip',
@@ -90,18 +91,22 @@ def create_iptables_rules():
     for command in commands:
         subprocess.call (command, shell = True)
 
-    if not i_interface2:
-        return
+    if i_interface2:
+        commands=[
+            'iptables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
+            'iptables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
+            'iptables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
+            'iptables -I FORWARD -i ' + i_interface2 + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT']
+        for command in commands:
+            subprocess.call (command, shell = True)
 
-    commands=[
-        'iptables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
-        'iptables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
-        'iptables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
-        #'iptables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set ! --match-set ' + ipset_eterban_1 + ' src -d ' + ban_server + ' -p tcp -m multiport --destination-port 80,443 -j DNAT --to-destination ' + ban_server + ':81',
-        #'iptables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_1 + ' src  -p tcp --dport 443 -j DNAT --to-destination ' + ban_server + ':80',
-        'iptables -I FORWARD -i ' + i_interface2 + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT']
-    for command in commands:
-        subprocess.call (command, shell = True)
+    # Internal interface: block outgoing connections to banned IPs (DNAT by destination)
+    if internal_interface:
+        commands=[
+            'iptables -t nat -I PREROUTING -i ' + internal_interface + ' -m set --match-set ' + ipset_eterban_1 + ' dst -p tcp -m multiport --dports 80,443 -j DNAT --to-destination ' + ban_server + ':82',
+            'iptables -t nat -I PREROUTING -i ' + internal_interface + ' -m set --match-set ' + ipset_firehol + ' dst -p tcp -m multiport --dports 80,443 -j DNAT --to-destination ' + ban_server + ':82']
+        for command in commands:
+            subprocess.call (command, shell = True)
 
 
 def create_ip6tables_rules():
@@ -135,7 +140,7 @@ def create_ip6tables_rules():
 
 
 def destroy_iptables_rules ():
-    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, i_interface, i_interface2
+    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, i_interface, i_interface2, internal_interface
     commands=[
         'iptables -t nat -D PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
         'iptables -t nat -D PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
@@ -150,20 +155,22 @@ def destroy_iptables_rules ():
         subprocess.call (command, shell = True)
         #print (command)
 
-    if not i_interface2:
-        return
+    if i_interface2:
+        commands=[
+            'iptables -t nat -D PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
+            'iptables -t nat -D PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
+            'iptables -t nat -D PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
+            'iptables -D FORWARD -i ' + i_interface2 + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT']
+        for command in commands:
+            subprocess.call (command, shell = True)
 
-    commands=[
-        'iptables -t nat -D PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
-        'iptables -t nat -D PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
-        'iptables -t nat -D PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
-        #'iptables -t nat -D PREROUTING -i ' + i_interface + ' -m set ! --match-set ' + ipset_eterban_1 + ' src -d ' + ban_server + ' -p tcp -m multiport --destination-port 80,443 -j DNAT --to-destination ' + ban_server + ':81',
-        #'iptables -t nat -D PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_1 + ' src -p tcp --dport 443 -j DNAT --to-destination ' + ban_server + ':80',
-        'iptables -D FORWARD -i ' + i_interface2 + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT']
-
-    for command in commands:
-        subprocess.call (command, shell = True)
-        #print (command)
+    # Internal interface: remove outgoing block rules
+    if internal_interface:
+        commands=[
+            'iptables -t nat -D PREROUTING -i ' + internal_interface + ' -m set --match-set ' + ipset_eterban_1 + ' dst -p tcp -m multiport --dports 80,443 -j DNAT --to-destination ' + ban_server + ':82',
+            'iptables -t nat -D PREROUTING -i ' + internal_interface + ' -m set --match-set ' + ipset_firehol + ' dst -p tcp -m multiport --dports 80,443 -j DNAT --to-destination ' + ban_server + ':82']
+        for command in commands:
+            subprocess.call (command, shell = True)
 
 
 def destroy_ip6tables_rules ():
@@ -216,7 +223,7 @@ signal.signal(signal.SIGTERM, exit_gracefully)
 
 
 #print ('1')
-redis_server, ban_server, ban_server_ipv6, i_interface, i_interface2, maxelem = parse_config (path_to_config, path_to_log)
+redis_server, ban_server, ban_server_ipv6, i_interface, i_interface2, internal_interface, maxelem = parse_config (path_to_config, path_to_log)
 
 #destroy_iptables_rules ()
 #sys.exit()
