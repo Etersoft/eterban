@@ -59,7 +59,8 @@ def parse_config (path_to_config, path_to_log):
             log_file.write(info)
         sys.exit()
     else:
-        return (redis_server, ban_server, ban_server_ipv6, i_interface, i_interface2)
+        maxelem = config.getint("Settings", "maxelem", fallback=2000000)
+        return (redis_server, ban_server, ban_server_ipv6, i_interface, i_interface2, maxelem)
 
 def save_ipset_eterban_1():
     global ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol, ipset_eterban_white, path_to_eterban
@@ -76,8 +77,8 @@ def restore_ipset_eterban_1():
         subprocess.call (command, shell = True)
 
 def create_iptables_rules():
-    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, i_interface, i_interface2
-    commands=['ipset create ' + ipset_eterban_1 + ' hash:ip maxelem 650000',
+    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, i_interface, i_interface2, maxelem
+    commands=['ipset create ' + ipset_eterban_1 + ' hash:ip maxelem ' + str(maxelem),
         'ipset create ' + ipset_firehol + ' hash:net',
         'ipset create ' + ipset_eterban_white + ' hash:ip',
         'iptables -t nat -I PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
@@ -104,10 +105,10 @@ def create_iptables_rules():
 
 
 def create_ip6tables_rules():
-    global ban_server_ipv6, ipset_eterban_1_ipv6, i_interface, i_interface2
+    global ban_server_ipv6, ipset_eterban_1_ipv6, i_interface, i_interface2, maxelem
     if not ban_server_ipv6:
         return
-    commands=['ipset create ' + ipset_eterban_1_ipv6 + ' hash:ip family inet6 maxelem 650000',
+    commands=['ipset create ' + ipset_eterban_1_ipv6 + ' hash:ip family inet6 maxelem ' + str(maxelem),
         #'ipset create ' + ipset_firehol + ' hash:net',
         #'ipset create ' + ipset_eterban_white + ' hash:ip',
         #'ip6tables -t nat -I PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
@@ -215,7 +216,7 @@ signal.signal(signal.SIGTERM, exit_gracefully)
 
 
 #print ('1')
-redis_server, ban_server, ban_server_ipv6, i_interface, i_interface2 = parse_config (path_to_config, path_to_log)
+redis_server, ban_server, ban_server_ipv6, i_interface, i_interface2, maxelem = parse_config (path_to_config, path_to_log)
 
 #destroy_iptables_rules ()
 #sys.exit()
