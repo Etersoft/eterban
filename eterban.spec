@@ -99,9 +99,11 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
 %post gateway
 %post_service %name
+%post_service %name-api
 
 %preun gateway
 %preun_service %name
+%preun_service %name-api
 
 
 %files common
@@ -117,7 +119,9 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %_datadir/%name/unban.py
 %_datadir/%name/autoban_manager.py
 %_datadir/%name/autoban_cli.py
+%_datadir/%name/eterban_api.py
 %_datadir/%name/__pycache__/
+%systemd_unitdir/eterban-api.service
 
 %files web
 %webserver_htdocsdir/%name/

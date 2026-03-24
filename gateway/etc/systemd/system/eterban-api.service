@@ -1,0 +1,12 @@
+[Unit]
+Description=Eterban API service
+After=network.target eterban.service
+
+[Service]
+Type=simple
+ExecStart=/usr/share/eterban/eterban_api.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
