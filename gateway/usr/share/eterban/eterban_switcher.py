@@ -18,6 +18,7 @@ ipset_eterban_1     = 'eterban_1'
 ipset_eterban_1_ipv6     = 'eterban_1_ipv6'
 ipset_firehol       = 'firehol_level1'
 ipset_eterban_white = 'eterban_white'
+ipset_eterban_white_ipv6 = 'eterban_white_ipv6'
 
 try:
     path_to_log = '/var/log/eterban/eterban.log'
@@ -43,17 +44,33 @@ def parse_config (path_to_config, path_to_log):
     config.read(path_to_config)
 
     # Читаем некоторые значения из конфиг. файла.
-    
+
     redis_server = config.get("Settings", "redis_server", fallback = "redis_server")
     ban_server = config.get("Settings", "ban_server", fallback = "ban_server")
     ban_server_ipv6 = config.get("Settings", "ban_server_ipv6", fallback = "")
-    i_interface = config.get("Settings", "i_interface", fallback = "i_interface")
-    i_interface2 = config.get("Settings", "i_interface2", fallback = "")
     internal_interface = config.get("Settings", "internal_interface", fallback = "")
-    if redis_server == "redis_server" or ban_server == "ban_server" or i_interface == "i_interface":
-        #config.set("Settings", "redis_server", "10.20.30.101")
-        #with open(path_to_config, "w") as config_file:
-        #    config_file.write(config)
+    whitelist_file = config.get("Settings", "whitelist_file", fallback = "/etc/eterban/whitelist.txt")
+
+    # Build list of WAN interfaces: prefer i_interfaces, fallback to i_interface/i_interface2
+    i_interfaces_raw = config.get("Settings", "i_interfaces", fallback = "")
+    i_interface = config.get("Settings", "i_interface", fallback = "")
+    i_interface2 = config.get("Settings", "i_interface2", fallback = "")
+
+    if i_interfaces_raw:
+        wan_ifaces = [x.strip() for x in i_interfaces_raw.replace(',', ' ').split() if x.strip()]
+        if i_interface or i_interface2:
+            info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            info += " WARNING: both i_interfaces and i_interface/i_interface2 set, using i_interfaces\n"
+            with open(path_to_log, "a") as log_file:
+                log_file.write(info)
+    else:
+        wan_ifaces = []
+        if i_interface:
+            wan_ifaces.append(i_interface)
+        if i_interface2:
+            wan_ifaces.append(i_interface2)
+
+    if redis_server == "redis_server" or ban_server == "ban_server" or not wan_ifaces:
         info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
         info +=' ' + 'Problem in config file (' + path_to_config + '). Check him!'
         with open(path_to_log, "a") as log_file:
@@ -61,42 +78,102 @@ def parse_config (path_to_config, path_to_log):
         sys.exit()
     else:
         maxelem = config.getint("Settings", "maxelem", fallback=2000000)
-        return (redis_server, ban_server, ban_server_ipv6, i_interface, i_interface2, internal_interface, maxelem)
+        return (redis_server, ban_server, ban_server_ipv6, wan_ifaces, internal_interface, maxelem, whitelist_file)
 
 def save_ipset_eterban_1():
-    global ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol, ipset_eterban_white, path_to_eterban
-    name_list = [ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol, ipset_eterban_white]
+    global ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol, path_to_eterban
+    # whitelist is not saved: it is rebuilt from whitelist_file on startup
+    name_list = [ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol]
     for name in name_list:
         command = 'ipset save ' + name + ' --file ' + path_to_eterban + name
         subprocess.call (command, shell = True)
 
 def restore_ipset_eterban_1():
-    global ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol, ipset_eterban_white, path_to_eterban
-    name_list = [ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol, ipset_eterban_white]
+    global ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol, path_to_eterban
+    name_list = [ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol]
     for name in name_list:
         command='ipset restore --file ' + path_to_eterban + name
         subprocess.call (command, shell = True)
 
+
+def load_whitelist():
+    global whitelist_file, ipset_eterban_white, ipset_eterban_white_ipv6, ban_server_ipv6, log
+    # Always flush first so the file is the single source of truth
+    subprocess.call('ipset flush ' + ipset_eterban_white, shell = True)
+    if ban_server_ipv6:
+        subprocess.call('ipset flush ' + ipset_eterban_white_ipv6, shell = True)
+    if not whitelist_file or not os.path.exists(whitelist_file):
+        return 0
+    loaded = 0
+    skipped = 0
+    with open(whitelist_file) as f:
+        for raw in f:
+            entry = raw.strip()
+            if not entry or entry.startswith('#'):
+                continue
+            try:
+                net = ipaddress.ip_network(entry, strict=False)
+            except ValueError:
+                info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                info += " whitelist: invalid entry '" + entry + "'\n"
+                log.write(info)
+                skipped += 1
+                continue
+            if isinstance(net, ipaddress.IPv6Network):
+                if not ban_server_ipv6:
+                    skipped += 1
+                    continue
+                cmd = 'ipset add ' + ipset_eterban_white_ipv6 + ' ' + str(net) + ' -exist'
+            else:
+                cmd = 'ipset add ' + ipset_eterban_white + ' ' + str(net) + ' -exist'
+            if subprocess.call(cmd, shell = True) == 0:
+                loaded += 1
+            else:
+                skipped += 1
+    info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    info += " whitelist: loaded " + str(loaded) + " entries from " + whitelist_file
+    if skipped:
+        info += " (" + str(skipped) + " skipped)"
+    info += "\n"
+    log.write(info)
+    log.flush()
+    return loaded
+
+
+def is_whitelisted(ip_str):
+    """Return True if ip_str matches any entry in the whitelist ipset."""
+    global ipset_eterban_white, ipset_eterban_white_ipv6, ban_server_ipv6
+    try:
+        addr = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False
+    if isinstance(addr, ipaddress.IPv6Address):
+        if not ban_server_ipv6:
+            return False
+        setname = ipset_eterban_white_ipv6
+    else:
+        setname = ipset_eterban_white
+    rc = subprocess.call(
+        'ipset test ' + setname + ' ' + ip_str,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell = True)
+    return rc == 0
+
 def create_iptables_rules():
-    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, i_interface, i_interface2, internal_interface, maxelem
+    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, wan_ifaces, internal_interface, maxelem
+    # Create ipsets (once)
     commands=['ipset create ' + ipset_eterban_1 + ' hash:ip maxelem ' + str(maxelem),
         'ipset create ' + ipset_firehol + ' hash:net',
-        'ipset create ' + ipset_eterban_white + ' hash:ip',
-        'iptables -t nat -I PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
-        'iptables -t nat -I PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
-        'iptables -t nat -I PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
-        #'iptables -t nat -I PREROUTING -i ' + i_interface + ' -m set ! --match-set ' + ipset_eterban_1 + ' src -d ' + ban_server + ' -p tcp -m multiport --destination-port 80,443 -j DNAT --to-destination ' + ban_server + ':81',
-        #'iptables -t nat -I PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_1 + ' src  -p tcp --dport 443 -j DNAT --to-destination ' + ban_server + ':80',
-        'iptables -I FORWARD -i ' + i_interface + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT']
+        'ipset create ' + ipset_eterban_white + ' hash:net']
     for command in commands:
         subprocess.call (command, shell = True)
 
-    if i_interface2:
+    # Per-WAN-interface rules
+    for iface in wan_ifaces:
         commands=[
-            'iptables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
-            'iptables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
-            'iptables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
-            'iptables -I FORWARD -i ' + i_interface2 + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT']
+            'iptables -t nat -I PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
+            'iptables -t nat -I PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
+            'iptables -t nat -I PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
+            'iptables -I FORWARD -i ' + iface + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT']
         for command in commands:
             subprocess.call (command, shell = True)
 
@@ -110,19 +187,21 @@ def create_iptables_rules():
 
 
 def create_ip6tables_rules():
-    global ban_server_ipv6, ipset_eterban_1_ipv6, i_interface, i_interface2, internal_interface, maxelem
+    global ban_server_ipv6, ipset_eterban_1_ipv6, ipset_eterban_white_ipv6, wan_ifaces, internal_interface, maxelem
     if not ban_server_ipv6:
         return
+    # Create ipsets (once)
     commands=['ipset create ' + ipset_eterban_1_ipv6 + ' hash:ip family inet6 maxelem ' + str(maxelem),
-        'ip6tables -t nat -I PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j DNAT --to-destination ' + ban_server_ipv6,
-        'ip6tables -I FORWARD -i ' + i_interface + ' -p tcp -m multiport ! --dport 80,443 -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j REJECT']
+        'ipset create ' + ipset_eterban_white_ipv6 + ' hash:net family inet6']
     for command in commands:
         subprocess.call (command, shell = True)
 
-    if i_interface2:
+    # Per-WAN-interface rules
+    for iface in wan_ifaces:
         commands=[
-            'ip6tables -t nat -I PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j DNAT --to-destination ' + ban_server_ipv6,
-            'ip6tables -I FORWARD -i ' + i_interface2 + ' -p tcp -m multiport ! --dport 80,443 -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j REJECT']
+            'ip6tables -t nat -I PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j DNAT --to-destination ' + ban_server_ipv6,
+            'ip6tables -t nat -I PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_white_ipv6 + ' src -j ACCEPT',
+            'ip6tables -I FORWARD -i ' + iface + ' -p tcp -m multiport ! --dport 80,443 -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j REJECT']
         for command in commands:
             subprocess.call (command, shell = True)
 
@@ -135,29 +214,20 @@ def create_ip6tables_rules():
 
 
 def destroy_iptables_rules ():
-    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, i_interface, i_interface2, internal_interface
-    commands=[
-        'iptables -t nat -D PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
-        'iptables -t nat -D PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
-        'iptables -t nat -D PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
-        #'iptables -t nat -D PREROUTING -i ' + i_interface + ' -m set ! --match-set ' + ipset_eterban_1 + ' src -d ' + ban_server + ' -p tcp -m multiport --destination-port 80,443 -j DNAT --to-destination ' + ban_server + ':81',
-        #'iptables -t nat -D PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_1 + ' src -p tcp --dport 443 -j DNAT --to-destination ' + ban_server + ':80',
-        'iptables -D FORWARD -i ' + i_interface + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT',
-        'ipset destroy ' + ipset_eterban_1,
-        'ipset destroy ' + ipset_firehol,
-        'ipset destroy ' + ipset_eterban_white]
-    for command in commands:
-        subprocess.call (command, shell = True)
-        #print (command)
-
-    if i_interface2:
+    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, wan_ifaces, internal_interface
+    # Per-WAN-interface rules
+    for iface in wan_ifaces:
         commands=[
-            'iptables -t nat -D PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
-            'iptables -t nat -D PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
-            'iptables -t nat -D PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
-            'iptables -D FORWARD -i ' + i_interface2 + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT']
+            'iptables -t nat -D PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
+            'iptables -t nat -D PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
+            'iptables -t nat -D PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
+            'iptables -D FORWARD -i ' + iface + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT']
         for command in commands:
             subprocess.call (command, shell = True)
+
+    # Destroy ipsets
+    for name in [ipset_eterban_1, ipset_firehol, ipset_eterban_white]:
+        subprocess.call('ipset destroy ' + name, shell = True)
 
     # Internal interface: remove outgoing block rules
     if internal_interface:
@@ -169,22 +239,21 @@ def destroy_iptables_rules ():
 
 
 def destroy_ip6tables_rules ():
-    global ban_server_ipv6, ipset_eterban_1_ipv6, i_interface, i_interface2, internal_interface
+    global ban_server_ipv6, ipset_eterban_1_ipv6, ipset_eterban_white_ipv6, wan_ifaces, internal_interface
     if not ban_server_ipv6:
         return
-    commands=[
-        'ip6tables -t nat -D PREROUTING -i ' + i_interface + ' -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j DNAT --to-destination ' + ban_server_ipv6,
-        'ip6tables -D FORWARD -i ' + i_interface + ' -p tcp -m multiport ! --dport 80,443 -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j REJECT',
-        'ipset destroy ' + ipset_eterban_1_ipv6]
-    for command in commands:
-        subprocess.call (command, shell = True)
-
-    if i_interface2:
+    # Per-WAN-interface rules
+    for iface in wan_ifaces:
         commands=[
-            'ip6tables -t nat -D PREROUTING -i ' + i_interface2 + ' -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j DNAT --to-destination ' + ban_server_ipv6,
-            'ip6tables -D FORWARD -i ' + i_interface2 + ' -p tcp -m multiport ! --dport 80,443 -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j REJECT']
+            'ip6tables -t nat -D PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j DNAT --to-destination ' + ban_server_ipv6,
+            'ip6tables -t nat -D PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_white_ipv6 + ' src -j ACCEPT',
+            'ip6tables -D FORWARD -i ' + iface + ' -p tcp -m multiport ! --dport 80,443 -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j REJECT']
         for command in commands:
             subprocess.call (command, shell = True)
+
+    # Destroy ipsets
+    for name in [ipset_eterban_1_ipv6, ipset_eterban_white_ipv6]:
+        subprocess.call('ipset destroy ' + name, shell = True)
 
     if internal_interface:
         commands=[
@@ -208,7 +277,7 @@ signal.signal(signal.SIGTERM, exit_gracefully)
 
 
 #print ('1')
-redis_server, ban_server, ban_server_ipv6, i_interface, i_interface2, internal_interface, maxelem = parse_config (path_to_config, path_to_log)
+redis_server, ban_server, ban_server_ipv6, wan_ifaces, internal_interface, maxelem, whitelist_file = parse_config (path_to_config, path_to_log)
 
 #destroy_iptables_rules ()
 #sys.exit()
@@ -262,17 +331,24 @@ if auto_mgr.enabled:
 restore_ipset_eterban_1()
 create_iptables_rules()
 create_ip6tables_rules()
+load_whitelist()
 
 
 for message in p.listen():
     if message is not None and  message['type']=='message' and message['channel'] == b'ban':
         ip = message['data'].decode('utf-8')
         ipo = ipaddress.ip_address(ip)
+        if is_whitelisted(ip):
+            info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            info += " " + ip + " skipped: matched whitelist\n"
+            print(info)
+            log.write(info)
+            log.flush()
+            continue
         if isinstance(ipo, ipaddress.IPv6Address):
             ban = 'ipset -A ' + ipset_eterban_1_ipv6 + ' ' + ip
         else:
             ban = 'ipset -A ' + ipset_eterban_1 + ' ' + ip
-        #remove = 'ipset -D ' + ipset_eterban_white + ' ' + ip
         print (ban)
         print (message)
         subprocess.call (ban, shell = True)
@@ -313,6 +389,9 @@ for message in p.listen():
             match = re.match(r'^(\S+) was blocked by ([^:]+)(?:: (.+))?$', by_msg)
             if match:
                 ip = match.group(1)
+                if is_whitelisted(ip):
+                    # Whitelisted IPs are not actually banned, so no offense tracking
+                    continue
                 source = match.group(2).strip()
                 reason = match.group(3) if match.group(3) else 'auto'
                 meta = auto_mgr.on_ban(ip, source=source, reason=reason)
