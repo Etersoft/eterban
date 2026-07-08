@@ -1,0 +1,13 @@
+# eterban whitelist
+# One IPv4/IPv6 address or CIDR network per line.
+# Lines starting with '#' and blank lines are ignored.
+# Entries in this file are never banned (ban requests for them are skipped,
+# and matching source traffic is ACCEPTed before DNAT to ban_server).
+#
+# Examples:
+#10.0.0.0/8
+#192.168.0.0/16
+#172.16.0.0/12
+#127.0.0.1
+#::1
+#fd00::/8

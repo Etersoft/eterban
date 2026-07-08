@@ -1,7 +1,7 @@
 %define defphp php%php_defver
 
 Name: eterban
-Version: 0.10
+Version: 0.11
 Release: alt1
 
 Summary: Etersoft ban service
@@ -108,6 +108,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
 %files common
 %config(noreplace) /etc/%name/settings.ini
+%config(noreplace) /etc/%name/whitelist.txt
 
 %files gateway
 %systemd_unitdir/eterban.service
@@ -134,6 +135,10 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Tue Jul 08 2026 Vitaly Lipatov <lav@altlinux.ru> 0.11-alt1
+- gateway: support list of WAN interfaces via i_interfaces config option
+- spec: add whitelist.txt to common package
+
 * Thu Jan 29 2026 Vitaly Lipatov <lav@altlinux.ru> 0.10-alt1
 - eterban_switcher.py: return error on redis connection error
 - add auto-unban with exponential backoff

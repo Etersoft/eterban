@@ -16,6 +16,7 @@ IPSET_V4 = 'eterban_1'
 IPSET_V6 = 'eterban_1_ipv6'
 IPSET_FIREHOL = 'firehol_level1'
 IPSET_WHITE = 'eterban_white'
+IPSET_WHITE_V6 = 'eterban_white_ipv6'
 
 path_to_config = '/etc/eterban/settings.ini'
 
@@ -54,7 +55,9 @@ def check_ip(ip_str):
         result['firehol'] = ipset_test(IPSET_FIREHOL, ip_str)
 
     # Check whitelist
-    if isinstance(addr, ipaddress.IPv4Address):
+    if isinstance(addr, ipaddress.IPv6Address):
+        result['whitelisted'] = ipset_test(IPSET_WHITE_V6, ip_str)
+    else:
         result['whitelisted'] = ipset_test(IPSET_WHITE, ip_str)
 
     return result

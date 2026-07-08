@@ -43,6 +43,10 @@ if [ "$command" = "check" ] ; then
             echo "$ip is BANNED (in $setname_ipv6)"
             found=1
         fi
+        if ipset test eterban_white_ipv6 "$ip" 2>/dev/null ; then
+            echo "$ip is WHITELISTED (in eterban_white_ipv6)"
+            found=1
+        fi
     else
         # IPv4
         if ipset test $setname "$ip" 2>/dev/null ; then
@@ -54,7 +58,7 @@ if [ "$command" = "check" ] ; then
             found=1
         fi
         if ipset test eterban_white "$ip" 2>/dev/null ; then
-            echo "$ip is WHITELISTED"
+            echo "$ip is WHITELISTED (in eterban_white)"
             found=1
         fi
     fi
