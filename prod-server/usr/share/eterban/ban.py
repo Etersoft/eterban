@@ -5,6 +5,13 @@ import sys
 import configparser
 import os
 import socket
+import ipaddress
+
+
+def get_ip_argument(argv):
+    if len(argv) < 2:
+        raise ValueError("Usage: ban.py <ip> [reason]")
+    return str(ipaddress.ip_address(argv[1]))
 
 def get_settings (path_to_config):
     if not os.path.exists(path_to_config):
@@ -22,11 +29,19 @@ def get_settings (path_to_config):
 path_to_config = '/etc/eterban/settings.ini'
 redis_server, hostname = get_settings (path_to_config)
 
-r = redis.Redis (host=redis_server)
-r.publish ('ban', sys.argv[1])
 try:
-    message = sys.argv[1] + " was blocked by " + hostname + ": " + sys.argv[2]
-except:
-    message = sys.argv[1] + " was blocked by " + hostname + " (set block: [name=NAME_OF_RULE] on " + hostname + ":/etc/fail2ban/jail.conf)"
+    ip = get_ip_argument(sys.argv)
+except ValueError as error:
+    print(error, file=sys.stderr)
+    sys.exit(2)
 
-r.publish ('by', message)
+reason = sys.argv[2] if len(sys.argv) > 2 else "(set block: [name=NAME_OF_RULE] on " + hostname + ":/etc/fail2ban/jail.conf)"
+message = ip + " was blocked by " + hostname + ": " + reason
+
+try:
+    r = redis.Redis(host=redis_server, socket_connect_timeout=5, socket_timeout=5)
+    r.publish('ban', ip)
+    r.publish('by', message)
+except redis.exceptions.RedisError as error:
+    print("Unable to publish ban event: " + str(error), file=sys.stderr)
+    sys.exit(1)
