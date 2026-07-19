@@ -76,6 +76,11 @@ if [ "$command" = "search" ] ; then
 fi
 
 if [ "$command" = "clear" ] ; then
+    if [ "$1" != "--force" ] ; then
+        echo "Refusing to clear all bans without --force" >&2
+        echo "Usage: eterban clear --force" >&2
+        exit 2
+    fi
     ipset flush $setname
     ipset flush $setname_ipv6
     exit
@@ -112,7 +117,7 @@ Commands:
     search <ip>   - search for ip in the list of banned IPs
     unban <ip>    - unban IP
     ban <ip>      - ban IP
-    clear         - remove all IPs from ban
+    clear --force - remove all IPs from ban
 
 Auto-unban commands:
     info <ip>     - show ban info and history for IP
