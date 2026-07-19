@@ -285,14 +285,35 @@ redis_server, ban_server, ban_server_ipv6, wan_ifaces, internal_interface, maxel
 #print (time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime()))
 #subprocess.call ('ipset create blacklist hash:ip', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
 
-try:
-    r = redis.Redis(host=redis_server)
-    p = r.pubsub()
+def log_redis_error(message):
+    info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    info += " " + message + "\n"
+    print(info, end='')
+    log.write(info)
+    log.flush()
 
-    p.subscribe('ban', 'unban', 'by')
-except:
-    print ("Unable to connect redis")
-    sys.exit(1)
+
+def connect_redis():
+    """Connect to Redis and subscribe, retrying after a connection failure."""
+    while True:
+        try:
+            redis_client = redis.Redis(
+                host=redis_server,
+                socket_connect_timeout=5,
+                socket_keepalive=True,
+                health_check_interval=30,
+            )
+            redis_client.ping()
+            pubsub = redis_client.pubsub()
+            pubsub.subscribe('ban', 'unban', 'by')
+            log_redis_error("Connected to Redis and subscribed to ban, unban, by")
+            return redis_client, pubsub
+        except (redis.exceptions.RedisError, OSError) as error:
+            log_redis_error("Unable to connect to Redis: " + str(error) + "; retrying in 5 seconds")
+            time.sleep(5)
+
+
+r, p = connect_redis()
 
 # Инициализация AutoBanManager
 config = configparser.ConfigParser()
@@ -334,7 +355,7 @@ create_ip6tables_rules()
 load_whitelist()
 
 
-for message in p.listen():
+def process_message(message):
     if message is not None and  message['type']=='message' and message['channel'] == b'ban':
         ip = message['data'].decode('utf-8')
         ipo = ipaddress.ip_address(ip)
@@ -344,7 +365,7 @@ for message in p.listen():
             print(info)
             log.write(info)
             log.flush()
-            continue
+            return
         if isinstance(ipo, ipaddress.IPv6Address):
             ban = 'ipset -A ' + ipset_eterban_1_ipv6 + ' ' + ip
         else:
@@ -391,7 +412,7 @@ for message in p.listen():
                 ip = match.group(1)
                 if is_whitelisted(ip):
                     # Whitelisted IPs are not actually banned, so no offense tracking
-                    continue
+                    return
                 source = match.group(2).strip()
                 reason = match.group(3) if match.group(3) else 'auto'
                 meta = auto_mgr.on_ban(ip, source=source, reason=reason)
@@ -414,3 +435,17 @@ for message in p.listen():
         log.flush()
     else:
         pass
+
+
+while True:
+    try:
+        for message in p.listen():
+            process_message(message)
+    except (redis.exceptions.RedisError, OSError) as error:
+        log_redis_error("Redis subscription lost: " + str(error) + "; reconnecting")
+        try:
+            p.close()
+        except (redis.exceptions.RedisError, OSError):
+            pass
+        r, p = connect_redis()
+        auto_mgr.r = r
