@@ -78,7 +78,7 @@ mkdir -p %buildroot%webserver_htdocsdir/%name/
 mkdir -p %buildroot/etc/nginx/sites-enabled.d/
 
 install -m 755 -D gateway/usr/bin/eterban.sh %buildroot%_bindir/%name
-cp -a gateway/usr/share/%name/* %buildroot%_datadir/%name/
+install -m 644 gateway/usr/share/%name/*.py %buildroot%_datadir/%name/
 
 install -m 644 common/etc/eterban/* %buildroot/etc/%name/
 
@@ -121,7 +121,6 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %_datadir/%name/autoban_manager.py
 %_datadir/%name/autoban_cli.py
 %_datadir/%name/eterban_api.py
-%_datadir/%name/__pycache__/
 %systemd_unitdir/eterban-api.service
 
 %files web
