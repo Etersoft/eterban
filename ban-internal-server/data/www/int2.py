@@ -1,6 +1,8 @@
 import socket
 import struct
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from html import escape
+from urllib.parse import quote, parse_qs, urlparse
 
 import redis
 import configparser
@@ -44,9 +46,8 @@ class OriginalDstHandler(BaseHTTPRequestHandler):
         # Обработка запроса на разблокировку
         if self.path.startswith("/unban"):
             # Извлекаем IP из параметра запроса
-            import urllib.parse
-            query = urllib.parse.urlparse(self.path).query
-            params = urllib.parse.parse_qs(query)
+            query = urlparse(self.path).query
+            params = parse_qs(query)
             target_ip = params.get("ip", [None])[0]
 
 
@@ -90,7 +91,7 @@ class OriginalDstHandler(BaseHTTPRequestHandler):
             <html>
                 <head><title>Unban IP</title></head>
                 <body>
-                    <p>IP {ip} has been unblocked. Wait 5 seconds, please.</p>
+                    <p>IP {escape(ip)} has been unblocked. Wait 5 seconds, please.</p>
                     <script>
                         function update() {{
                             window.location.href = "/";
@@ -116,10 +117,10 @@ class OriginalDstHandler(BaseHTTPRequestHandler):
             <body>
                 <h2>Eterban note.</h2>
                 <h3>Access to this IP address is restricted due to it suspicious activity.</h3>
-                <p>You accessed: <strong>{ip}</strong> from your IP {client_ip}</p>
+                <p>You accessed: <strong>{escape(ip)}</strong> from your IP {escape(client_ip)}</p>
                 <p>
-                    <a href="/unban.php?ip={ip}">
-                        <button>Unban IP: {ip}</button>
+                    <a href="/unban.php?ip={quote(ip, safe='')}">
+                        <button>Unban IP: {escape(ip)}</button>
                     </a>
                 </p>
             </body>
