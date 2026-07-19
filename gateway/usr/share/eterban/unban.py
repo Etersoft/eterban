@@ -34,8 +34,12 @@ if not ip:
 
 try:
     r = redis.Redis (host=redis_server)
-    r.publish ('unban', ip)
+    subscribers = r.publish ('unban', ip)
+    if subscribers == 0:
+        print("No eterban Redis subscribers; IP was not unblocked")
+        sys.exit(1)
     message = ip + " was unblocked by admin on " + hostname
     r.publish ('by', message)
-except:
-    print("Error with connect to redis " + redis_server)
+except Exception as error:
+    print("Error with connect to redis " + redis_server + ": " + str(error))
+    sys.exit(1)

@@ -380,13 +380,16 @@ def process_message(message):
     elif message is not None and message['type'] =='message' and message['channel'] == b'unban' :
         print (message)
         ip = message['data'].decode('utf-8')
-        ipo = ipaddress.ip_network(ip, strict=False)
-        if isinstance(ipo, ipaddress.IPv6Address):
+        try:
+            ipo = ipaddress.ip_network(ip, strict=False)
+        except ValueError:
+            log.write("Not parsed as IP, skipped " + str(ip) + '\n')
+            log.flush()
+            return
+        if isinstance(ipo, ipaddress.IPv6Network):
             unban = 'ipset -D ' + ipset_eterban_1_ipv6 + ' ' + ip
         elif isinstance(ipo, ipaddress.IPv4Network):
             unban = 'ipset -D ' + ipset_eterban_1 + ' ' + ip
-        else:
-            log.write("Not parsed as IP, skipped " + str(ip) + '\n')
         #add   = 'ipset -A ' + ipset_eterban_white + ' ' + ip
         subprocess.call (unban, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
         #subprocess.call (add, shell = True)
