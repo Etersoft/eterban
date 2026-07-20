@@ -221,15 +221,13 @@ class AutoBanManager:
 
     def reset_offense_counter(self, ip):
         """
-        Сбросить счётчик нарушений для IP.
+        Сбросить историю нарушений, не меняя текущий ban.
 
         Args:
             ip: IP-адрес
         """
         try:
             self.r.delete(f"{self.META_PREFIX}{ip}")
-            self.r.zrem(self.SCHEDULE_KEY, ip)
-            self.r.srem(self.PERMANENT_KEY, ip)
         except Exception as e:
             log.error(f"AutoBanManager.reset_offense_counter error: {e}")
 

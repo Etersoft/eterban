@@ -110,9 +110,7 @@ def cmd_reset(ip):
         return
 
     r.delete(meta_key)
-    r.zrem(SCHEDULE_KEY, ip)
-    r.srem(PERMANENT_KEY, ip)
-    print(f"Reset offense counter for {ip}")
+    print(f"Reset offense counter for {ip}; active ban state is unchanged")
 
 
 def cmd_pending():
