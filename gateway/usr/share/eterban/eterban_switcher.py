@@ -440,7 +440,7 @@ restore_bans_from_redis()
 load_whitelist()
 
 
-def process_message(message):
+def process_message_inner(message):
     if message is not None and  message['type']=='message' and message['channel'] == b'ban':
         ip = message['data'].decode('utf-8')
         ipo = ipaddress.ip_address(ip)
@@ -529,6 +529,14 @@ def process_message(message):
         log.flush()
     else:
         pass
+
+
+def process_message(message):
+    """Handle malformed Pub/Sub payloads without losing the subscription."""
+    try:
+        process_message_inner(message)
+    except (KeyError, TypeError, UnicodeDecodeError, ValueError) as error:
+        log_redis_error("Invalid Redis message skipped: " + str(error) + "; payload=" + repr(message)[:200])
 
 
 while True:
