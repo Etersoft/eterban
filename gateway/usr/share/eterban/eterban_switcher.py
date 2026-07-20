@@ -10,6 +10,7 @@ import socket
 import ipaddress
 import threading
 import re
+import queue
 from autoban_manager import AutoBanManager
 
 path_to_config      = '/etc/eterban/settings.ini'
@@ -306,6 +307,33 @@ def log_redis_error(message):
     log.flush()
 
 
+conntrack_queue = queue.Queue(maxsize=1024)
+
+
+def conntrack_worker():
+    while True:
+        ip = conntrack_queue.get()
+        try:
+            subprocess.run(
+                ['conntrack', '-D', '-s', ip],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+        except (OSError, subprocess.SubprocessError) as error:
+            log_redis_error("conntrack cleanup failed for " + ip + ": " + str(error))
+        finally:
+            conntrack_queue.task_done()
+
+
+def queue_conntrack_cleanup(ip):
+    try:
+        conntrack_queue.put_nowait(ip)
+    except queue.Full:
+        log_redis_error("conntrack cleanup queue full; skipped " + ip)
+
+
+for _ in range(4):
+    threading.Thread(target=conntrack_worker, daemon=True).start()
+
+
 def get_ipset_members(setname):
     """Return valid address members from an ipset without parsing human output."""
     try:
@@ -440,7 +468,7 @@ def apply_unban(ip):
     if not remove_persisted_ban(ip):
         return False
 
-    subprocess.Popen(['conntrack', '-D', '-s', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    queue_conntrack_cleanup(ip)
     if auto_mgr.enabled:
         auto_mgr.on_unban(ip)
     return True
@@ -505,8 +533,7 @@ def process_message_inner(message):
         print (message)
         subprocess.call (ban, shell = True)
         #subprocess.call (remove, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
-        tcp_drop = 'conntrack -D -s ' + ip
-        subprocess.Popen(tcp_drop, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
+        queue_conntrack_cleanup(ip)
 
     elif message is not None and message['type'] =='message' and message['channel'] == b'unban' :
         print (message)
