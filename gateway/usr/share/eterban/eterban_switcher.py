@@ -400,6 +400,32 @@ config = configparser.ConfigParser()
 config.read(path_to_config)
 auto_mgr = AutoBanManager(r, config)
 
+
+def apply_unban(ip):
+    """Remove one ban locally and update Redis only after ipset succeeds."""
+    try:
+        network = ipaddress.ip_network(ip, strict=False)
+    except ValueError:
+        log_redis_error("Not parsed as IP, skipped " + str(ip))
+        return False
+
+    setname = ipset_eterban_1_ipv6 if isinstance(network, ipaddress.IPv6Network) else ipset_eterban_1
+    command = ['ipset', 'del', setname, ip, '-exist']
+    try:
+        subprocess.run(command, check=True, timeout=10, capture_output=True)
+    except (OSError, subprocess.SubprocessError) as error:
+        log_redis_error("Unable to remove ban from ipset: " + ip + "; " + str(error))
+        return False
+
+    if not remove_persisted_ban(ip):
+        return False
+
+    subprocess.Popen(['conntrack', '-D', '-s', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if auto_mgr.enabled:
+        auto_mgr.on_unban(ip)
+    return True
+
+
 def auto_unban_checker():
     """Фоновый поток для проверки и выполнения авто-разбанов."""
     while True:
@@ -410,14 +436,12 @@ def auto_unban_checker():
         try:
             expired = auto_mgr.get_expired_bans()
             for ip in expired:
-                # Публикуем разбан
-                r.publish('unban', ip)
-                r.publish('by', f"{ip} auto-unbanned after ban period expired")
-                auto_mgr.remove_from_schedule(ip)
-                info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                info += f" {ip} auto-unbanned\n"
-                log.write(info)
-                log.flush()
+                if apply_unban(ip):
+                    r.publish('by', f"{ip} auto-unbanned after ban period expired")
+                    info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                    info += f" {ip} auto-unbanned\n"
+                    log.write(info)
+                    log.flush()
         except Exception as e:
             info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             info += f" auto_unban_checker error: {e}\n"
@@ -467,29 +491,7 @@ def process_message_inner(message):
     elif message is not None and message['type'] =='message' and message['channel'] == b'unban' :
         print (message)
         ip = message['data'].decode('utf-8')
-        try:
-            ipo = ipaddress.ip_network(ip, strict=False)
-        except ValueError:
-            log.write("Not parsed as IP, skipped " + str(ip) + '\n')
-            log.flush()
-            return
-        if isinstance(ipo, ipaddress.IPv6Network):
-            unban = 'ipset -D ' + ipset_eterban_1_ipv6 + ' ' + ip
-        elif isinstance(ipo, ipaddress.IPv4Network):
-            unban = 'ipset -D ' + ipset_eterban_1 + ' ' + ip
-        #add   = 'ipset -A ' + ipset_eterban_white + ' ' + ip
-        if subprocess.call(unban + ' -exist', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True) != 0:
-            log_redis_error("Unable to remove ban from ipset: " + ip)
-            return
-        if not remove_persisted_ban(ip):
-            return
-        #subprocess.call (add, shell = True)
-        tcp_drop = 'conntrack -D -s ' + ip
-        subprocess.Popen(tcp_drop, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
-
-        # AutoBan: обновляем метаданные (убираем из расписания)
-        if auto_mgr.enabled:
-            auto_mgr.on_unban(ip)
+        apply_unban(ip)
     elif message is not None and message['type'] =='message' and message['channel'] == b'by':
         by_msg = message['data'].decode('utf-8')
         info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
