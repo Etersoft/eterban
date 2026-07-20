@@ -79,6 +79,7 @@ class AutoBanManager:
 
             # Получаем существующие метаданные
             existing = self.r.hgetall(meta_key)
+            is_permanent = self.r.sismember(self.PERMANENT_KEY, ip)
 
             if existing:
                 offense_count = int(existing.get(b'offense_count', 0))
@@ -90,7 +91,9 @@ class AutoBanManager:
 
                 offense_count += 1
             else:
-                offense_count = 1
+                # Permanent state is authoritative even if old metadata was
+                # removed by a previous release's TTL or an admin reset.
+                offense_count = self.max_offense_level + 1 if is_permanent else 1
 
             # Рассчитываем время бана
             ban_duration = self.calculate_ban_duration(offense_count)
@@ -107,14 +110,16 @@ class AutoBanManager:
             }
             self.r.hset(meta_key, mapping=metadata)
 
-            # Устанавливаем TTL для очистки (1 год после последнего нарушения)
-            self.r.expire(meta_key, self.reset_period_seconds)
-
             # Добавляем в расписание авто-разбана или в постоянные
             if unban_time > 0:
+                # Temporary ban history can be reset after a clean period.
+                self.r.expire(meta_key, self.reset_period_seconds)
                 self.r.zadd(self.SCHEDULE_KEY, {ip: unban_time})
                 self.r.srem(self.PERMANENT_KEY, ip)  # На случай если был permanent
             else:
+                # Permanent state must not disappear when temporary metadata
+                # would otherwise reach its one-year TTL.
+                self.r.persist(meta_key)
                 self.r.sadd(self.PERMANENT_KEY, ip)
                 self.r.zrem(self.SCHEDULE_KEY, ip)  # Убираем из расписания
 
