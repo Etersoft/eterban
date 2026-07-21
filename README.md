@@ -34,7 +34,9 @@ logpath = %(sshd_log)s
 backend = %(sshd_backend)s
 maxretry = 3
 findtime = 1200
-bantime  = 5
+# This is only Fail2Ban's local cooldown. The gateway [AutoUnban] policy
+# determines the actual centralized ban duration.
+bantime  = 1
 ```
 
 Важно: в графе action выставлять значение eterban. Желательно в name указывать причину блокировки.
