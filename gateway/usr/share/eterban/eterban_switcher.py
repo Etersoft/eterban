@@ -11,6 +11,7 @@ import ipaddress
 import threading
 import re
 import queue
+import logging
 from autoban_manager import AutoBanManager
 
 path_to_config      = '/etc/eterban/settings.ini'
@@ -305,6 +306,18 @@ def log_redis_error(message):
     print(info, end='')
     log.write(info)
     log.flush()
+
+
+def configure_autoban_logging():
+    autoban_log = logging.getLogger('autoban_manager')
+    autoban_log.setLevel(logging.ERROR)
+    autoban_log.propagate = False
+    handler = logging.StreamHandler(log)
+    handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+    autoban_log.addHandler(handler)
+
+
+configure_autoban_logging()
 
 
 conntrack_queue = queue.Queue(maxsize=1024)
