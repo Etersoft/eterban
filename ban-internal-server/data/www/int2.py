@@ -53,9 +53,10 @@ class OriginalDstHandler(BaseHTTPRequestHandler):
 
             try:
                 r = redis.Redis(host=host_redis, port=6379, socket_timeout=5)
-                if r.publish('unban', ip) < 1:
-                    raise redis.RedisError('no Redis subscribers')
-                r.publish('by', f"{ip} was unblocked by {client_ip}")
+                r.xadd('eterban:commands', {
+                    'command': 'unban', 'ip': ip,
+                    'by': f"{ip} was unblocked by {client_ip}",
+                })
                 r.close()
             except Exception as e:
                 self.send_response(500)

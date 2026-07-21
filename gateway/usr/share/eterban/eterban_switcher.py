@@ -22,6 +22,9 @@ ipset_eterban_white = 'eterban_white'
 ipset_eterban_white_ipv6 = 'eterban_white_ipv6'
 redis_bans_key = 'eterban:active_bans'
 redis_bans_initialized_key = 'eterban:active_bans:initialized'
+redis_commands_stream = 'eterban:commands'
+redis_commands_group = 'eterban-switcher'
+redis_commands_consumer = socket.gethostname()
 interface_name_re = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
 try:
@@ -466,7 +469,7 @@ def remove_persisted_ban(ip):
 
 
 def connect_redis():
-    """Connect to Redis and subscribe, retrying after a connection failure."""
+    """Connect to Redis and create the durable command consumer group."""
     while True:
         try:
             redis_client = redis.Redis(
@@ -476,16 +479,20 @@ def connect_redis():
                 health_check_interval=30,
             )
             redis_client.ping()
-            pubsub = redis_client.pubsub()
-            pubsub.subscribe('ban', 'unban', 'by')
-            log_redis_error("Connected to Redis and subscribed to ban, unban, by")
-            return redis_client, pubsub
+            try:
+                redis_client.xgroup_create(redis_commands_stream, redis_commands_group,
+                                           id='0', mkstream=True)
+            except redis.exceptions.ResponseError as error:
+                if 'BUSYGROUP' not in str(error):
+                    raise
+            log_redis_error("Connected to Redis Stream " + redis_commands_stream)
+            return redis_client
         except (redis.exceptions.RedisError, OSError) as error:
             log_redis_error("Unable to connect to Redis: " + str(error) + "; retrying in 5 seconds")
             time.sleep(5)
 
 
-r, p = connect_redis()
+r = connect_redis()
 
 # Инициализация AutoBanManager
 config = configparser.ConfigParser()
@@ -529,7 +536,6 @@ def auto_unban_checker():
             expired = auto_mgr.get_expired_bans()
             for ip in expired:
                 if apply_unban(ip):
-                    r.publish('by', f"{ip} auto-unbanned after ban period expired")
                     info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                     info += f" {ip} auto-unbanned\n"
                     log.write(info)
@@ -566,22 +572,25 @@ def process_message_inner(message):
             print(info)
             log.write(info)
             log.flush()
-            return
-        if not persist_ban(ip):
-            return
+            return True
         if isinstance(ipo, ipaddress.IPv6Address):
             ban = ['ipset', '-A', ipset_eterban_1_ipv6, ip]
         else:
             ban = ['ipset', '-A', ipset_eterban_1, ip]
         print (ban)
         print (message)
-        subprocess.call(ban)
+        if subprocess.call(ban) != 0:
+            log_redis_error("Unable to add ban to ipset: " + ip)
+            return False
+        if not persist_ban(ip):
+            return False
         queue_conntrack_cleanup(ip)
+        return True
 
     elif message is not None and message['type'] =='message' and message['channel'] == b'unban' :
         print (message)
         ip = message['data'].decode('utf-8')
-        apply_unban(ip)
+        return apply_unban(ip)
     elif message is not None and message['type'] =='message' and message['channel'] == b'by':
         by_msg = message['data'].decode('utf-8')
         info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
@@ -612,6 +621,7 @@ def process_message_inner(message):
                     print(auto_info)
                     log.write(auto_info)
                     log.flush()
+        return True
     elif message is not None:
         print ("AHTUNG!!1!", message)
         info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
@@ -619,27 +629,43 @@ def process_message_inner(message):
         print (info)
         log.write(info)
         log.flush()
+        return True
     else:
-        pass
+        return True
 
 
 def process_message(message):
     """Handle malformed Pub/Sub payloads without losing the subscription."""
     try:
-        process_message_inner(message)
+        return process_message_inner(message)
     except (KeyError, TypeError, UnicodeDecodeError, ValueError) as error:
         log_redis_error("Invalid Redis message skipped: " + str(error) + "; payload=" + repr(message)[:200])
+        return True
+
+
+def process_stream_entry(fields):
+    """Adapt a durable Stream command to the established command handlers."""
+    command = fields.get(b'command', b'')
+    ip = fields.get(b'ip', b'')
+    message = {'type': 'message', 'channel': command, 'data': ip}
+    success = process_message(message)
+    by_message = fields.get(b'by')
+    if by_message:
+        success = process_message({'type': 'message', 'channel': b'by', 'data': by_message}) and success
+    return success
 
 
 while True:
     try:
-        for message in p.listen():
-            process_message(message)
+        pending = r.xreadgroup(redis_commands_group, redis_commands_consumer,
+                               {redis_commands_stream: '0'}, count=10)
+        entries = pending or r.xreadgroup(redis_commands_group, redis_commands_consumer,
+                                          {redis_commands_stream: '>'}, count=10, block=5000)
+        for stream, messages in entries:
+            for message_id, fields in messages:
+                if process_stream_entry(fields):
+                    r.xack(stream, redis_commands_group, message_id)
     except (redis.exceptions.RedisError, OSError) as error:
-        log_redis_error("Redis subscription lost: " + str(error) + "; reconnecting")
-        try:
-            p.close()
-        except (redis.exceptions.RedisError, OSError):
-            pass
-        r, p = connect_redis()
+        log_redis_error("Redis Stream read failed: " + str(error) + "; reconnecting")
+        r = connect_redis()
         auto_mgr.r = r

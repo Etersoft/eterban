@@ -21,11 +21,11 @@ try {
     if (!$redis->connect($host_redis, 6379, 2.5)) {
         throw new RedisException('connection failed');
     }
-    $subscribers = $redis->publish('unban', $ip);
-    if ($subscribers < 1) {
-        throw new RedisException('no Redis subscribers');
-    }
-    $redis->publish('by', $ip . ' was unblocked by ' . $hostname);
+    $redis->xAdd('eterban:commands', '*', [
+        'command' => 'unban',
+        'ip' => $ip,
+        'by' => $ip . ' was unblocked by ' . $hostname,
+    ]);
     $redis->close();
 } catch (RedisException $error) {
     http_response_code(503);

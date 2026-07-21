@@ -40,12 +40,8 @@ except ValueError:
 
 try:
     r = redis.Redis(host=redis_server, socket_connect_timeout=5, socket_timeout=5)
-    subscribers = r.publish ('unban', ip)
-    if subscribers == 0:
-        print("No eterban Redis subscribers; IP was not unblocked")
-        sys.exit(1)
     message = ip + " was unblocked by admin on " + hostname
-    r.publish ('by', message)
+    r.xadd('eterban:commands', {'command': 'unban', 'ip': ip, 'by': message})
 except redis.exceptions.RedisError as error:
     print("Error with connect to redis " + redis_server + ": " + str(error))
     sys.exit(1)

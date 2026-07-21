@@ -40,8 +40,7 @@ message = ip + " was blocked by " + hostname + ": " + reason
 
 try:
     r = redis.Redis(host=redis_server, socket_connect_timeout=5, socket_timeout=5)
-    r.publish('ban', ip)
-    r.publish('by', message)
+    r.xadd('eterban:commands', {'command': 'ban', 'ip': ip, 'by': message})
 except redis.exceptions.RedisError as error:
     print("Unable to publish ban event: " + str(error), file=sys.stderr)
     sys.exit(1)
