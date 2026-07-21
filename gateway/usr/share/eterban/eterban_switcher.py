@@ -117,38 +117,47 @@ def restore_legacy_ipsets():
 
 def load_whitelist():
     global whitelist_file, ipset_eterban_white, ipset_eterban_white_ipv6, ban_server_ipv6, log
-    # Always flush first so the file is the single source of truth
-    subprocess.call(['ipset', 'flush', ipset_eterban_white])
-    if ban_server_ipv6:
-        subprocess.call(['ipset', 'flush', ipset_eterban_white_ipv6])
     if not whitelist_file or not os.path.exists(whitelist_file):
         return 0
+    targets = [(ipset_eterban_white, 'inet')]
+    if ban_server_ipv6:
+        targets.append((ipset_eterban_white_ipv6, 'inet6'))
+    temporary = {name: name + '_new' for name, family in targets}
+    for name, family in targets:
+        subprocess.call(['ipset', 'destroy', temporary[name]], stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL)
+        command = ['ipset', 'create', temporary[name], 'hash:net']
+        if family == 'inet6':
+            command.extend(['family', 'inet6'])
+        if subprocess.call(command) != 0:
+            raise OSError('unable to create temporary whitelist set ' + temporary[name])
     loaded = 0
     skipped = 0
-    with open(whitelist_file) as f:
-        for raw in f:
-            entry = raw.strip()
-            if not entry or entry.startswith('#'):
-                continue
-            try:
-                net = ipaddress.ip_network(entry, strict=False)
-            except ValueError:
-                info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                info += " whitelist: invalid entry '" + entry + "'\n"
-                log.write(info)
-                skipped += 1
-                continue
-            if isinstance(net, ipaddress.IPv6Network):
-                if not ban_server_ipv6:
+    try:
+        with open(whitelist_file) as f:
+            for raw in f:
+                entry = raw.strip()
+                if not entry or entry.startswith('#'):
+                    continue
+                try:
+                    net = ipaddress.ip_network(entry, strict=False)
+                except ValueError:
                     skipped += 1
                     continue
-                cmd = ['ipset', 'add', ipset_eterban_white_ipv6, str(net), '-exist']
-            else:
-                cmd = ['ipset', 'add', ipset_eterban_white, str(net), '-exist']
-            if subprocess.call(cmd) == 0:
+                name = ipset_eterban_white_ipv6 if isinstance(net, ipaddress.IPv6Network) else ipset_eterban_white
+                if name not in temporary:
+                    skipped += 1
+                    continue
+                if subprocess.call(['ipset', 'add', temporary[name], str(net), '-exist']) != 0:
+                    raise OSError('unable to add whitelist entry ' + str(net))
                 loaded += 1
-            else:
-                skipped += 1
+        for name, family in targets:
+            if subprocess.call(['ipset', 'swap', name, temporary[name]]) != 0:
+                raise OSError('unable to activate whitelist set ' + name)
+    finally:
+        for name in temporary.values():
+            subprocess.call(['ipset', 'destroy', name], stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
     info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     info += " whitelist: loaded " + str(loaded) + " entries from " + whitelist_file
     if skipped:
