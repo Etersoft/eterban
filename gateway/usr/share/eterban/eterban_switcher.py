@@ -112,7 +112,9 @@ def restore_legacy_ipsets():
     global ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol
     name_list = [ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol]
     for name in name_list:
-        subprocess.call(['ipset', 'restore', '--file', '/usr/share/eterban/' + name])
+        snapshot = '/usr/share/eterban/' + name
+        if os.path.exists(snapshot):
+            subprocess.run(['ipset', 'restore', '--file', snapshot], check=True, timeout=10)
 
 
 def load_whitelist():
