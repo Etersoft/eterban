@@ -212,7 +212,7 @@ def create_iptables_rules():
         ['ipset', 'create', ipset_firehol, 'hash:net'],
         ['ipset', 'create', ipset_eterban_white, 'hash:net']]
     for command in commands:
-        subprocess.call(command)
+        subprocess.run(command + ['-exist'], check=True, timeout=10)
 
     # Per-WAN-interface rules
     for iface in wan_ifaces:
@@ -242,7 +242,7 @@ def create_ip6tables_rules():
     commands=[['ipset', 'create', ipset_eterban_1_ipv6, 'hash:ip', 'family', 'inet6', 'maxelem', str(maxelem)],
         ['ipset', 'create', ipset_eterban_white_ipv6, 'hash:net', 'family', 'inet6']]
     for command in commands:
-        subprocess.call(command)
+        subprocess.run(command + ['-exist'], check=True, timeout=10)
 
     # Per-WAN-interface rules
     for iface in wan_ifaces:
@@ -563,9 +563,13 @@ if auto_mgr.enabled:
 # Older releases also kept the FireHOL set in this snapshot.  The manual ban
 # sets are flushed below and rebuilt from Redis, so the snapshot is only a
 # migration source for them.
-restore_legacy_ipsets()
-create_iptables_rules()
-create_ip6tables_rules()
+try:
+    restore_legacy_ipsets()
+    create_iptables_rules()
+    create_ip6tables_rules()
+except (OSError, subprocess.SubprocessError) as error:
+    log_redis_error("Unable to initialize firewall state: " + str(error))
+    sys.exit(1)
 initialize_ban_state()
 restore_bans_from_redis()
 load_whitelist()
