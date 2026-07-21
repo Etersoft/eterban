@@ -47,6 +47,7 @@ Group: Development/Other
 Requires: eterban-common = %EVR
 Requires: nginx
 Requires: %defphp-redis
+Requires: %defphp-fpm
 
 %description web
 Etersoft ban service.
