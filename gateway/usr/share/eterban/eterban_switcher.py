@@ -109,16 +109,15 @@ def restore_legacy_ipsets():
     global ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol
     name_list = [ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol]
     for name in name_list:
-        command='ipset restore --file /usr/share/eterban/' + name
-        subprocess.call (command, shell = True)
+        subprocess.call(['ipset', 'restore', '--file', '/usr/share/eterban/' + name])
 
 
 def load_whitelist():
     global whitelist_file, ipset_eterban_white, ipset_eterban_white_ipv6, ban_server_ipv6, log
     # Always flush first so the file is the single source of truth
-    subprocess.call('ipset flush ' + ipset_eterban_white, shell = True)
+    subprocess.call(['ipset', 'flush', ipset_eterban_white])
     if ban_server_ipv6:
-        subprocess.call('ipset flush ' + ipset_eterban_white_ipv6, shell = True)
+        subprocess.call(['ipset', 'flush', ipset_eterban_white_ipv6])
     if not whitelist_file or not os.path.exists(whitelist_file):
         return 0
     loaded = 0
@@ -140,10 +139,10 @@ def load_whitelist():
                 if not ban_server_ipv6:
                     skipped += 1
                     continue
-                cmd = 'ipset add ' + ipset_eterban_white_ipv6 + ' ' + str(net) + ' -exist'
+                cmd = ['ipset', 'add', ipset_eterban_white_ipv6, str(net), '-exist']
             else:
-                cmd = 'ipset add ' + ipset_eterban_white + ' ' + str(net) + ' -exist'
-            if subprocess.call(cmd, shell = True) == 0:
+                cmd = ['ipset', 'add', ipset_eterban_white, str(net), '-exist']
+            if subprocess.call(cmd) == 0:
                 loaded += 1
             else:
                 skipped += 1
@@ -159,16 +158,20 @@ def load_whitelist():
 
 def ensure_firewall_rule(command):
     """Insert a rule only when the exact rule is not already present."""
-    check_command = command.replace(' -I ', ' -C ', 1)
-    if check_command == command or subprocess.call(check_command, shell=True) != 0:
-        return subprocess.call(command, shell=True)
+    check_command = command.copy()
+    try:
+        check_command[check_command.index('-I')] = '-C'
+    except ValueError:
+        return subprocess.call(command)
+    if subprocess.call(check_command) != 0:
+        return subprocess.call(command)
     return 0
 
 
 def remove_firewall_rule(command):
     """Remove all duplicate copies of a rule during cleanup."""
     result = 0
-    while subprocess.call(command, shell=True) == 0:
+    while subprocess.call(command) == 0:
         result = 0
     return result
 
@@ -186,36 +189,35 @@ def is_whitelisted(ip_str):
         setname = ipset_eterban_white_ipv6
     else:
         setname = ipset_eterban_white
-    rc = subprocess.call(
-        'ipset test ' + setname + ' ' + ip_str,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell = True)
+    rc = subprocess.call(['ipset', 'test', setname, ip_str],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return rc == 0
 
 def create_iptables_rules():
     global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, wan_ifaces, internal_interface, maxelem
     # Create ipsets (once)
-    commands=['ipset create ' + ipset_eterban_1 + ' hash:ip maxelem ' + str(maxelem),
-        'ipset create ' + ipset_firehol + ' hash:net',
-        'ipset create ' + ipset_eterban_white + ' hash:net']
+    commands=[['ipset', 'create', ipset_eterban_1, 'hash:ip', 'maxelem', str(maxelem)],
+        ['ipset', 'create', ipset_firehol, 'hash:net'],
+        ['ipset', 'create', ipset_eterban_white, 'hash:net']]
     for command in commands:
-        subprocess.call (command, shell = True)
+        subprocess.call(command)
 
     # Per-WAN-interface rules
     for iface in wan_ifaces:
         commands=[
-            'iptables -t nat -I PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
-            'iptables -t nat -I PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
-            'iptables -t nat -I PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
-            'iptables -I FORWARD -i ' + iface + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT',
-            'iptables -I FORWARD -i ' + iface + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT']
+            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_firehol, 'src', '-j', 'DNAT', '--to-destination', ban_server],
+            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1, 'src', '-j', 'DNAT', '--to-destination', ban_server],
+            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white, 'src', '-j', 'ACCEPT'],
+            ['iptables', '-I', 'FORWARD', '-i', iface, '-p', 'tcp', '-m', 'multiport', '!', '--dport', '80,81,443', '-m', 'set', '--match-set', ipset_eterban_1, 'src', '-j', 'REJECT'],
+            ['iptables', '-I', 'FORWARD', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white, 'src', '-j', 'ACCEPT']]
         for command in commands:
             ensure_firewall_rule(command)
 
     # Internal interface: block outgoing connections to banned IPs (DNAT by destination)
     if internal_interface:
         commands=[
-            'iptables -t nat -I PREROUTING -i ' + internal_interface + ' -m set --match-set ' + ipset_eterban_1 + ' dst -p tcp -m multiport --dports 80,443 -j DNAT --to-destination ' + ban_server + ':82',
-            'iptables -t nat -I PREROUTING -i ' + internal_interface + ' -m set --match-set ' + ipset_firehol + ' dst -p tcp -m multiport --dports 80,443 -j DNAT --to-destination ' + ban_server + ':82']
+            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82'],
+            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_firehol, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82']]
         for command in commands:
             ensure_firewall_rule(command)
 
@@ -225,25 +227,25 @@ def create_ip6tables_rules():
     if not ban_server_ipv6:
         return
     # Create ipsets (once)
-    commands=['ipset create ' + ipset_eterban_1_ipv6 + ' hash:ip family inet6 maxelem ' + str(maxelem),
-        'ipset create ' + ipset_eterban_white_ipv6 + ' hash:net family inet6']
+    commands=[['ipset', 'create', ipset_eterban_1_ipv6, 'hash:ip', 'family', 'inet6', 'maxelem', str(maxelem)],
+        ['ipset', 'create', ipset_eterban_white_ipv6, 'hash:net', 'family', 'inet6']]
     for command in commands:
-        subprocess.call (command, shell = True)
+        subprocess.call(command)
 
     # Per-WAN-interface rules
     for iface in wan_ifaces:
         commands=[
-            'ip6tables -t nat -I PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j DNAT --to-destination ' + ban_server_ipv6,
-            'ip6tables -t nat -I PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_white_ipv6 + ' src -j ACCEPT',
-            'ip6tables -I FORWARD -i ' + iface + ' -p tcp -m multiport ! --dport 80,443 -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j REJECT',
-            'ip6tables -I FORWARD -i ' + iface + ' -m set --match-set ' + ipset_eterban_white_ipv6 + ' src -j ACCEPT']
+            ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'src', '-j', 'DNAT', '--to-destination', ban_server_ipv6],
+            ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'src', '-j', 'ACCEPT'],
+            ['ip6tables', '-I', 'FORWARD', '-i', iface, '-p', 'tcp', '-m', 'multiport', '!', '--dport', '80,443', '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'src', '-j', 'REJECT'],
+            ['ip6tables', '-I', 'FORWARD', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'src', '-j', 'ACCEPT']]
         for command in commands:
             ensure_firewall_rule(command)
 
     # Internal interface: block outgoing connections to banned IPv6 IPs (DNAT by destination)
     if internal_interface:
         commands=[
-            'ip6tables -t nat -I PREROUTING -i ' + internal_interface + ' -m set --match-set ' + ipset_eterban_1_ipv6 + ' dst -p tcp -m multiport --dports 80,443 -j DNAT --to-destination [' + ban_server_ipv6 + ']:82']
+            ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:82']]
         for command in commands:
             ensure_firewall_rule(command)
 
@@ -253,23 +255,23 @@ def destroy_iptables_rules ():
     # Per-WAN-interface rules
     for iface in wan_ifaces:
         commands=[
-            'iptables -t nat -D PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_firehol + ' src -j DNAT --to-destination ' + ban_server,
-            'iptables -t nat -D PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_1 + ' src -j DNAT --to-destination ' + ban_server,
-            'iptables -t nat -D PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT',
-            'iptables -D FORWARD -i ' + iface + ' -p tcp -m multiport ! --dport 80,81,443 -m set --match-set ' + ipset_eterban_1 + ' src -j REJECT',
-            'iptables -D FORWARD -i ' + iface + ' -m set --match-set ' + ipset_eterban_white + ' src -j ACCEPT']
+            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_firehol, 'src', '-j', 'DNAT', '--to-destination', ban_server],
+            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1, 'src', '-j', 'DNAT', '--to-destination', ban_server],
+            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white, 'src', '-j', 'ACCEPT'],
+            ['iptables', '-D', 'FORWARD', '-i', iface, '-p', 'tcp', '-m', 'multiport', '!', '--dport', '80,81,443', '-m', 'set', '--match-set', ipset_eterban_1, 'src', '-j', 'REJECT'],
+            ['iptables', '-D', 'FORWARD', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white, 'src', '-j', 'ACCEPT']]
         for command in commands:
             remove_firewall_rule(command)
 
     # Destroy ipsets
     for name in [ipset_eterban_1, ipset_firehol, ipset_eterban_white]:
-        subprocess.call('ipset destroy ' + name, shell = True)
+        subprocess.call(['ipset', 'destroy', name])
 
     # Internal interface: remove outgoing block rules
     if internal_interface:
         commands=[
-            'iptables -t nat -D PREROUTING -i ' + internal_interface + ' -m set --match-set ' + ipset_eterban_1 + ' dst -p tcp -m multiport --dports 80,443 -j DNAT --to-destination ' + ban_server + ':82',
-            'iptables -t nat -D PREROUTING -i ' + internal_interface + ' -m set --match-set ' + ipset_firehol + ' dst -p tcp -m multiport --dports 80,443 -j DNAT --to-destination ' + ban_server + ':82']
+            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82'],
+            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_firehol, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82']]
         for command in commands:
             remove_firewall_rule(command)
 
@@ -281,20 +283,20 @@ def destroy_ip6tables_rules ():
     # Per-WAN-interface rules
     for iface in wan_ifaces:
         commands=[
-            'ip6tables -t nat -D PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j DNAT --to-destination ' + ban_server_ipv6,
-            'ip6tables -t nat -D PREROUTING -i ' + iface + ' -m set --match-set ' + ipset_eterban_white_ipv6 + ' src -j ACCEPT',
-            'ip6tables -D FORWARD -i ' + iface + ' -p tcp -m multiport ! --dport 80,443 -m set --match-set ' + ipset_eterban_1_ipv6 + ' src -j REJECT',
-            'ip6tables -D FORWARD -i ' + iface + ' -m set --match-set ' + ipset_eterban_white_ipv6 + ' src -j ACCEPT']
+            ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'src', '-j', 'DNAT', '--to-destination', ban_server_ipv6],
+            ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'src', '-j', 'ACCEPT'],
+            ['ip6tables', '-D', 'FORWARD', '-i', iface, '-p', 'tcp', '-m', 'multiport', '!', '--dport', '80,443', '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'src', '-j', 'REJECT'],
+            ['ip6tables', '-D', 'FORWARD', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'src', '-j', 'ACCEPT']]
         for command in commands:
             remove_firewall_rule(command)
 
     # Destroy ipsets
     for name in [ipset_eterban_1_ipv6, ipset_eterban_white_ipv6]:
-        subprocess.call('ipset destroy ' + name, shell = True)
+        subprocess.call(['ipset', 'destroy', name])
 
     if internal_interface:
         commands=[
-            'ip6tables -t nat -D PREROUTING -i ' + internal_interface + ' -m set --match-set ' + ipset_eterban_1_ipv6 + ' dst -p tcp -m multiport --dports 80,443 -j DNAT --to-destination [' + ban_server_ipv6 + ']:82']
+            ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:82']]
         for command in commands:
             remove_firewall_rule(command)
 
@@ -319,8 +321,6 @@ redis_server, ban_server, ban_server_ipv6, wan_ifaces, internal_interface, maxel
 #sys.exit()
 #print ("done!")
 #print (time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime()))
-#subprocess.call ('ipset create blacklist hash:ip', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
-
 def log_redis_error(message):
     info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     info += " " + message + "\n"
@@ -560,13 +560,12 @@ def process_message_inner(message):
         if not persist_ban(ip):
             return
         if isinstance(ipo, ipaddress.IPv6Address):
-            ban = 'ipset -A ' + ipset_eterban_1_ipv6 + ' ' + ip
+            ban = ['ipset', '-A', ipset_eterban_1_ipv6, ip]
         else:
-            ban = 'ipset -A ' + ipset_eterban_1 + ' ' + ip
+            ban = ['ipset', '-A', ipset_eterban_1, ip]
         print (ban)
         print (message)
-        subprocess.call (ban, shell = True)
-        #subprocess.call (remove, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
+        subprocess.call(ban)
         queue_conntrack_cleanup(ip)
 
     elif message is not None and message['type'] =='message' and message['channel'] == b'unban' :
