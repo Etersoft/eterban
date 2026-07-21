@@ -89,6 +89,11 @@ if [ "$command" = "clear" ] ; then
     exit
 fi
 
+if [ "$command" = "reload-whitelist" ] ; then
+    systemctl kill --signal=HUP eterban.service
+    exit
+fi
+
 if [ "$command" = "info" ] ; then
     /usr/share/eterban/autoban_cli.py info $1
     exit
@@ -121,6 +126,7 @@ Commands:
     unban <ip>    - unban IP
     ban <ip>      - ban IP
     clear --force - remove all IPs from ban
+    reload-whitelist - reload whitelist.txt without restarting eterban
 
 Auto-unban commands:
     info <ip>     - show ban info and history for IP

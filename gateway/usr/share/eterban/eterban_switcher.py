@@ -329,6 +329,15 @@ def log_redis_error(message):
     log.flush()
 
 
+def reload_whitelist(signum, frame):
+    """Reload the configured whitelist without changing firewall topology."""
+    try:
+        loaded = load_whitelist()
+        log_redis_error("Whitelist reloaded: " + str(loaded) + " entries")
+    except (OSError, subprocess.SubprocessError) as error:
+        log_redis_error("Unable to reload whitelist: " + str(error))
+
+
 def configure_autoban_logging():
     autoban_log = logging.getLogger('autoban_manager')
     autoban_log.setLevel(logging.ERROR)
@@ -339,6 +348,7 @@ def configure_autoban_logging():
 
 
 configure_autoban_logging()
+signal.signal(signal.SIGHUP, reload_whitelist)
 
 
 conntrack_queue = queue.Queue(maxsize=1024)
