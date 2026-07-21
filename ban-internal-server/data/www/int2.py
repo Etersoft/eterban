@@ -2,11 +2,11 @@ import socket
 import struct
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from html import escape
-from urllib.parse import quote, parse_qs, urlparse
+from urllib.parse import quote
 
 import redis
 import configparser
-import os
+import ipaddress
 
 
 # Чтение настроек из INI-файла
@@ -19,13 +19,14 @@ def read_settings(settings_file):
 # Функция для получения оригинального адреса назначения
 def get_original_dst(sock):
     try:
-        # Используем SO_ORIGINAL_DST для получения оригинального адреса назначения
-        # SO_ORIGINAL_DST = 80 (для Linux)
-        dst = sock.getsockopt(socket.SOL_IP, 80, 16)
-        ip, port = struct.unpack("!IH", dst[4:10])
-        return f"{socket.inet_ntoa(struct.pack('!I', ip))}:{port}"
-    except Exception as e:
-        return f"Error: {e}"
+        dst = sock.getsockopt(socket.SOL_IP, 80, 16)  # SO_ORIGINAL_DST
+        return str(ipaddress.IPv4Address(dst[4:8])), struct.unpack('!H', dst[2:4])[0]
+    except OSError:
+        try:
+            dst = sock.getsockopt(socket.IPPROTO_IPV6, 80, 28)  # IP6T_SO_ORIGINAL_DST
+            return str(ipaddress.IPv6Address(dst[8:24])), struct.unpack('!H', dst[2:4])[0]
+        except OSError:
+            return None, None
 
 
 # Кастомный обработчик HTTP-запросов
@@ -34,36 +35,15 @@ class OriginalDstHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Получаем оригинальный адрес назначения
-        original_dst = get_original_dst(self.request)
-        if ":" in original_dst:
-            ip, port = original_dst.split(":", 1)
-        else:
-            ip, port = original_dst, "0"
-
-        client_ip = self.headers.get('X-Forwarded-For', self.client_address[0])
+        ip, port = get_original_dst(self.request)
+        if not ip:
+            self.send_error(502, 'Original destination is unavailable')
+            return
+        client_ip = self.client_address[0]
 
 
         # Обработка запроса на разблокировку
         if self.path.startswith("/unban"):
-            # Извлекаем IP из параметра запроса
-            query = urlparse(self.path).query
-            params = parse_qs(query)
-            target_ip = params.get("ip", [None])[0]
-
-
-            # Получаем предыдущий адрес (HTTP_REFERER)
-            #old_addr = self.headers.get('Referer', '')
-
-            if not target_ip:
-                response_message = "No IP provided for unban."
-
-                # Возвращаем ответ
-                self.send_response(200)
-                self.send_header("Content-type", "text/html")
-                self.end_headers()
-                self.wfile.write(response_message.encode("utf-8"))
-                return
-
             # Читаем настройки из файла
             settings_file = '/etc/eterban/settings.ini'
             settings = read_settings(settings_file)
@@ -73,7 +53,8 @@ class OriginalDstHandler(BaseHTTPRequestHandler):
 
             try:
                 r = redis.Redis(host=host_redis, port=6379, socket_timeout=5)
-                r.publish('unban', ip)
+                if r.publish('unban', ip) < 1:
+                    raise redis.RedisError('no Redis subscribers')
                 r.publish('by', f"{ip} was unblocked by {client_ip}")
                 r.close()
             except Exception as e:
@@ -129,12 +110,20 @@ class OriginalDstHandler(BaseHTTPRequestHandler):
         self.wfile.write(response.encode("utf-8"))
 
 # Запуск HTTP-сервера
-def run_server(port=82):
-    server_address = ("91.232.225.67", port)
-    httpd = ThreadingHTTPServer(server_address, OriginalDstHandler)
+def run_server(host, port=82):
+    address = ipaddress.ip_address(host)
+    if isinstance(address, ipaddress.IPv6Address):
+        class IPv6ThreadingHTTPServer(ThreadingHTTPServer):
+            address_family = socket.AF_INET6
+        server_class = IPv6ThreadingHTTPServer
+    else:
+        server_class = ThreadingHTTPServer
+    server_address = (str(address), port)
+    httpd = server_class(server_address, OriginalDstHandler)
     httpd.timeout = 5
     print(f"Starting server on port {port}...")
     httpd.serve_forever()
 
 if __name__ == "__main__":
-    run_server()
+    settings = read_settings('/etc/eterban/settings.ini')
+    run_server(settings['ban_server'])

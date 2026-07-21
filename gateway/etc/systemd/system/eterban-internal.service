@@ -1,0 +1,12 @@
+[Unit]
+Description=Eterban internal redirect page
+After=network.target redis.service
+
+[Service]
+Type=simple
+ExecStart=/usr/share/eterban/eterban_internal.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

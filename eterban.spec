@@ -79,6 +79,7 @@ mkdir -p %buildroot/etc/nginx/sites-enabled.d/
 
 install -m 755 -D gateway/usr/bin/eterban.sh %buildroot%_bindir/%name
 install -m 644 gateway/usr/share/%name/*.py %buildroot%_datadir/%name/
+install -m 755 ban-internal-server/data/www/int2.py %buildroot%_datadir/%name/eterban_internal.py
 
 install -m 644 common/etc/eterban/* %buildroot/etc/%name/
 
@@ -88,11 +89,6 @@ install -m 644 gateway/etc/cron.hourly/* %buildroot/etc/cron.hourly/
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
 install -m 644 ban-server/etc/nginx/sites-enabled.d/* %buildroot/etc/nginx/sites-enabled.d/
 
-mkdir -p %buildroot%webserver_htdocsdir/%name-internal/
-mkdir -p %buildroot/etc/nginx/sites-available.d/
-install -m 644 ban-internal-server/data/www/* %buildroot%webserver_htdocsdir/%name-internal/
-install -m 644 ban-internal-server/etc/nginx/sites-enabled.d/eterban.conf %buildroot/etc/nginx/sites-available.d/eterban-internal.conf
-
 install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
 
 cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
@@ -100,11 +96,12 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %post gateway
 %post_service %name
 %post_service %name-api
+%post_service %name-internal
 
 %preun gateway
 %preun_service %name
 %preun_service %name-api
-
+%preun_service %name-internal
 
 %files common
 %config(noreplace) /etc/%name/settings.ini
@@ -121,13 +118,13 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %_datadir/%name/autoban_manager.py
 %_datadir/%name/autoban_cli.py
 %_datadir/%name/eterban_api.py
+%_datadir/%name/eterban_internal.py
 %systemd_unitdir/eterban-api.service
+%systemd_unitdir/eterban-internal.service
 
 %files web
 %webserver_htdocsdir/%name/
-%webserver_htdocsdir/%name-internal/
 %config(noreplace) /etc/nginx/sites-enabled.d/eterban.conf
-%config(noreplace) /etc/nginx/sites-available.d/eterban-internal.conf
 
 %files fail2ban
 %_datadir/%name/ban.py
