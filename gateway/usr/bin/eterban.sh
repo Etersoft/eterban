@@ -3,14 +3,17 @@
 setname="eterban_1"
 setname_ipv6="eterban_1_ipv6"
 
+count_set() {
+    ipset list "$1" 2>/dev/null | awk '/^Number of entries:/ { print $4; found=1 } END { if (!found) print 0 }'
+}
+
 command="$1"
 [ -n "$command" ] && shift
 
 if [ "$command" = "count" ] ; then
     echo "Count of banned:"
-    # TODO: some quiet to ignore headers
-    echo "$setname: $(ipset list $setname | wc -l)"
-    echo "$setname_ipv6: $(ipset list $setname_ipv6 | wc -l)"
+    echo "$setname: $(count_set "$setname")"
+    echo "$setname_ipv6: $(count_set "$setname_ipv6")"
     exit
 fi
 
