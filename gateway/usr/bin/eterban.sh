@@ -72,9 +72,9 @@ if [ "$command" = "check" ] ; then
 fi
 
 if [ "$command" = "search" ] ; then
-    mask="$(echo "$1" | sed -e 's|\.|\\.|g')"
-    ipset list $setname | grep --color "$mask"
-    ipset list $setname_ipv6 | grep --color "$mask"
+    mask="$1"
+    ipset list "$setname" | grep --color=auto -F -- "$mask"
+    ipset list "$setname_ipv6" | grep --color=auto -F -- "$mask"
     exit
 fi
 
