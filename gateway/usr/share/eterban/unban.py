@@ -5,6 +5,7 @@ import sys
 import configparser
 import os
 import socket
+import ipaddress
 
 def get_settings (path_to_config):
     if not os.path.exists(path_to_config):
@@ -31,15 +32,20 @@ else:
 if not ip:
     print("Run with IP arg")
     sys.exit()
+try:
+    ip = str(ipaddress.ip_network(ip, strict=False))
+except ValueError:
+    print("Invalid IP address or network: " + ip)
+    sys.exit(2)
 
 try:
-    r = redis.Redis (host=redis_server)
+    r = redis.Redis(host=redis_server, socket_connect_timeout=5, socket_timeout=5)
     subscribers = r.publish ('unban', ip)
     if subscribers == 0:
         print("No eterban Redis subscribers; IP was not unblocked")
         sys.exit(1)
     message = ip + " was unblocked by admin on " + hostname
     r.publish ('by', message)
-except Exception as error:
+except redis.exceptions.RedisError as error:
     print("Error with connect to redis " + redis_server + ": " + str(error))
     sys.exit(1)
