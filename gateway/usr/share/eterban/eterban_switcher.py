@@ -22,6 +22,7 @@ ipset_eterban_white = 'eterban_white'
 ipset_eterban_white_ipv6 = 'eterban_white_ipv6'
 redis_bans_key = 'eterban:active_bans'
 redis_bans_initialized_key = 'eterban:active_bans:initialized'
+interface_name_re = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
 try:
     path_to_log = '/var/log/eterban/eterban.log'
@@ -73,6 +74,27 @@ def parse_config (path_to_config, path_to_log):
         if i_interface2:
             wan_ifaces.append(i_interface2)
 
+    try:
+        ban_server = str(ipaddress.ip_address(ban_server))
+        if ban_server_ipv6:
+            ipv6_address = ipaddress.ip_address(ban_server_ipv6)
+            if not isinstance(ipv6_address, ipaddress.IPv6Address):
+                raise ValueError("ban_server_ipv6 is not IPv6")
+            ban_server_ipv6 = str(ipv6_address)
+        if not all(interface_name_re.fullmatch(interface) for interface in wan_ifaces):
+            raise ValueError("invalid WAN interface name")
+        if internal_interface and not interface_name_re.fullmatch(internal_interface):
+            raise ValueError("invalid internal interface name")
+        maxelem = config.getint("Settings", "maxelem", fallback=2000000)
+        if maxelem < 1:
+            raise ValueError("maxelem must be positive")
+    except (ValueError, TypeError) as error:
+        info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        info += " Problem in config file (" + path_to_config + "): " + str(error) + "\n"
+        with open(path_to_log, "a") as log_file:
+            log_file.write(info)
+        sys.exit()
+
     if redis_server == "redis_server" or ban_server == "ban_server" or not wan_ifaces:
         info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
         info +=' ' + 'Problem in config file (' + path_to_config + '). Check him!'
@@ -80,7 +102,6 @@ def parse_config (path_to_config, path_to_log):
             log_file.write(info)
         sys.exit()
     else:
-        maxelem = config.getint("Settings", "maxelem", fallback=2000000)
         return (redis_server, ban_server, ban_server_ipv6, wan_ifaces, internal_interface, maxelem, whitelist_file)
 
 def restore_legacy_ipsets():
