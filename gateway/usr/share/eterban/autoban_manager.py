@@ -144,11 +144,13 @@ class AutoBanManager:
 
         try:
             # Удаляем из расписания и постоянных
-            self.r.zrem(self.SCHEDULE_KEY, ip)
-            self.r.srem(self.PERMANENT_KEY, ip)
+            pipeline = self.r.pipeline(transaction=True)
+            pipeline.zrem(self.SCHEDULE_KEY, ip)
+            pipeline.srem(self.PERMANENT_KEY, ip)
 
             if reset_counter:
-                self.r.delete(f"{self.META_PREFIX}{ip}")
+                pipeline.delete(f"{self.META_PREFIX}{ip}")
+            pipeline.execute()
 
         except Exception as e:
             log.error(f"AutoBanManager.on_unban error: {e}")
