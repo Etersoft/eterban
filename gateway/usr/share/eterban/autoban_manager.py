@@ -108,20 +108,22 @@ class AutoBanManager:
                 'source': source,
                 'reason': reason
             }
-            self.r.hset(meta_key, mapping=metadata)
+            pipeline = self.r.pipeline(transaction=True)
+            pipeline.hset(meta_key, mapping=metadata)
 
             # Добавляем в расписание авто-разбана или в постоянные
             if unban_time > 0:
                 # Temporary ban history can be reset after a clean period.
-                self.r.expire(meta_key, self.reset_period_seconds)
-                self.r.zadd(self.SCHEDULE_KEY, {ip: unban_time})
-                self.r.srem(self.PERMANENT_KEY, ip)  # На случай если был permanent
+                pipeline.expire(meta_key, self.reset_period_seconds)
+                pipeline.zadd(self.SCHEDULE_KEY, {ip: unban_time})
+                pipeline.srem(self.PERMANENT_KEY, ip)  # На случай если был permanent
             else:
                 # Permanent state must not disappear when temporary metadata
                 # would otherwise reach its one-year TTL.
-                self.r.persist(meta_key)
-                self.r.sadd(self.PERMANENT_KEY, ip)
-                self.r.zrem(self.SCHEDULE_KEY, ip)  # Убираем из расписания
+                pipeline.persist(meta_key)
+                pipeline.sadd(self.PERMANENT_KEY, ip)
+                pipeline.zrem(self.SCHEDULE_KEY, ip)  # Убираем из расписания
+            pipeline.execute()
 
             return metadata
 
