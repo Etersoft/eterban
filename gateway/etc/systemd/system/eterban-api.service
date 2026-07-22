@@ -4,7 +4,7 @@ After=network.target eterban.service
 
 [Service]
 Type=simple
-ExecStart=/usr/share/eterban/eterban_api.py
+ExecStart=/usr/bin/python3 /usr/share/eterban/eterban_api.py
 Restart=always
 RestartSec=5
 
