@@ -379,6 +379,8 @@ signal.signal(signal.SIGHUP, reload_whitelist)
 
 
 conntrack_queue = queue.Queue(maxsize=1024)
+conntrack_pending = set()
+conntrack_pending_lock = threading.Lock()
 
 
 def conntrack_worker():
@@ -391,13 +393,21 @@ def conntrack_worker():
         except (OSError, subprocess.SubprocessError) as error:
             log_redis_error("conntrack cleanup failed for " + ip + ": " + str(error))
         finally:
+            with conntrack_pending_lock:
+                conntrack_pending.discard(ip)
             conntrack_queue.task_done()
 
 
 def queue_conntrack_cleanup(ip):
+    with conntrack_pending_lock:
+        if ip in conntrack_pending:
+            return
+        conntrack_pending.add(ip)
     try:
         conntrack_queue.put_nowait(ip)
     except queue.Full:
+        with conntrack_pending_lock:
+            conntrack_pending.discard(ip)
         log_redis_error("conntrack cleanup queue full; skipped " + ip)
 
 
