@@ -24,10 +24,19 @@ def get_settings (path_to_config):
     # Читаем некоторые значения из конфиг. файла.
     redis_server = config.get("Settings", "redis_server", fallback = "localhost")
     hostname = config.get("Settings", "hostname", fallback = socket.gethostname())
-    return (redis_server, hostname)
+    options = {}
+    username = config.get("Settings", "redis_username", fallback="").strip()
+    password = config.get("Settings", "redis_password", fallback="")
+    if username:
+        options['username'] = username
+    if password:
+        options['password'] = password
+    if config.getboolean("Settings", "redis_tls", fallback=False):
+        options['ssl'] = True
+    return (redis_server, hostname, options)
 
 path_to_config = '/etc/eterban/settings.ini'
-redis_server, hostname = get_settings (path_to_config)
+redis_server, hostname, redis_options = get_settings (path_to_config)
 
 try:
     ip = get_ip_argument(sys.argv)
@@ -39,7 +48,7 @@ reason = sys.argv[2] if len(sys.argv) > 2 else "(set block: [name=NAME_OF_RULE] 
 message = ip + " was blocked by " + hostname + ": " + reason
 
 try:
-    r = redis.Redis(host=redis_server, socket_connect_timeout=5, socket_timeout=5)
+    r = redis.Redis(host=redis_server, socket_connect_timeout=5, socket_timeout=5, **redis_options)
     r.xadd('eterban:commands', {'command': 'ban', 'ip': ip, 'by': message})
 except redis.exceptions.RedisError as error:
     print("Unable to publish ban event: " + str(error), file=sys.stderr)

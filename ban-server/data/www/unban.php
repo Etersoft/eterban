@@ -5,6 +5,9 @@ session_start();
 $ip = $_SERVER['REMOTE_ADDR'] ?? '';
 $settings = parse_ini_file('/etc/eterban/settings.ini');
 $host_redis = is_array($settings) ? ($settings['redis_server'] ?? '') : '';
+$redis_username = is_array($settings) ? ($settings['redis_username'] ?? '') : '';
+$redis_password = is_array($settings) ? ($settings['redis_password'] ?? '') : '';
+$redis_tls = is_array($settings) && filter_var($settings['redis_tls'] ?? false, FILTER_VALIDATE_BOOLEAN);
 $hostname = is_array($settings) ? ($settings['hostname'] ?? '') : '';
 
 if (!filter_var($ip, FILTER_VALIDATE_IP) || empty($host_redis)) {
@@ -60,8 +63,11 @@ if (!is_string($nonce) || !is_string($proof) || time() > $expires ||
 
 try {
     $redis = new Redis();
-    if (!$redis->connect($host_redis, 6379, 2.5)) {
+    if (!$redis->connect($host_redis, 6379, 2.5, null, 0, 0, $redis_tls ? ['stream' => ['verify_peer' => true]] : [])) {
         throw new RedisException('connection failed');
+    }
+    if ($redis_password !== '' && !$redis->auth($redis_username !== '' ? [$redis_username, $redis_password] : $redis_password)) {
+        throw new RedisException('authentication failed');
     }
     $redis->xAdd('eterban:commands', '*', [
         'command' => 'unban',

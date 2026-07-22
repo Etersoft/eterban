@@ -18,10 +18,19 @@ def get_settings (path_to_config):
     # Читаем некоторые значения из конфиг. файла.
     redis_server = config.get("Settings", "redis_server", fallback = "localhost")
     hostname = config.get("Settings", "hostname", fallback = socket.gethostname())
-    return (redis_server, hostname)
+    options = {}
+    username = config.get("Settings", "redis_username", fallback="").strip()
+    password = config.get("Settings", "redis_password", fallback="")
+    if username:
+        options['username'] = username
+    if password:
+        options['password'] = password
+    if config.getboolean("Settings", "redis_tls", fallback=False):
+        options['ssl'] = True
+    return (redis_server, hostname, options)
 
 path_to_config = '/etc/eterban/settings.ini'
-redis_server, hostname = get_settings (path_to_config)
+redis_server, hostname, redis_options = get_settings (path_to_config)
 
 
 if len(sys.argv) > 1:
@@ -39,7 +48,7 @@ except ValueError:
     sys.exit(2)
 
 try:
-    r = redis.Redis(host=redis_server, socket_connect_timeout=5, socket_timeout=5)
+    r = redis.Redis(host=redis_server, socket_connect_timeout=5, socket_timeout=5, **redis_options)
     message = ip + " was unblocked by admin on " + hostname
     r.xadd('eterban:commands', {'command': 'unban', 'ip': ip, 'by': message})
 except redis.exceptions.RedisError as error:

@@ -107,6 +107,19 @@ def parse_config (path_to_config, path_to_log):
     else:
         return (redis_server, ban_server, ban_server_ipv6, wan_ifaces, internal_interface, maxelem, whitelist_file)
 
+
+def redis_connection_options(config):
+    options = {}
+    username = config.get('Settings', 'redis_username', fallback='').strip()
+    password = config.get('Settings', 'redis_password', fallback='')
+    if username:
+        options['username'] = username
+    if password:
+        options['password'] = password
+    if config.getboolean('Settings', 'redis_tls', fallback=False):
+        options['ssl'] = True
+    return options
+
 def restore_legacy_ipsets():
     """One-time migration fallback for snapshots made by older releases."""
     global ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol
@@ -488,6 +501,7 @@ def connect_redis():
                 socket_connect_timeout=5,
                 socket_keepalive=True,
                 health_check_interval=30,
+                **redis_options,
             )
             redis_client.ping()
             try:
@@ -503,11 +517,12 @@ def connect_redis():
             time.sleep(5)
 
 
+config = configparser.ConfigParser()
+config.read(path_to_config)
+redis_options = redis_connection_options(config)
 r = connect_redis()
 
 # Инициализация AutoBanManager
-config = configparser.ConfigParser()
-config.read(path_to_config)
 auto_mgr = AutoBanManager(r, config)
 
 
