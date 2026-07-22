@@ -47,7 +47,7 @@ Group: Development/Other
 Requires: eterban-common = %EVR
 Requires: nginx
 Requires: %defphp-redis
-Requires: %defphp-fpm
+Requires: %defphp-fpm-fcgi
 
 %description web
 Etersoft ban service.
@@ -89,6 +89,7 @@ install -m 644 gateway/etc/cron.hourly/* %buildroot/etc/cron.hourly/
 
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
 install -m 644 ban-server/etc/nginx/sites-enabled.d/* %buildroot/etc/nginx/sites-enabled.d/
+sed -i 's|@PHP_FPM_SOCKET@|/var/run/php%php_defver-fpm/php%php_defver-fpm.sock|' %buildroot/etc/nginx/sites-enabled.d/eterban.conf
 
 install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
 
