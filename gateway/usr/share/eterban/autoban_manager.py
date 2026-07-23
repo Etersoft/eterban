@@ -78,7 +78,7 @@ class AutoBanManager:
         for _ in range(3):
             pipeline = self.r.pipeline()
             try:
-                pipeline.watch(meta_key, self.PERMANENT_KEY)
+                pipeline.watch(meta_key, self.PERMANENT_KEY, self.SCHEDULE_KEY)
                 now = int(time.time())
                 existing = pipeline.hgetall(meta_key)
                 is_permanent = pipeline.sismember(self.PERMANENT_KEY, ip)
