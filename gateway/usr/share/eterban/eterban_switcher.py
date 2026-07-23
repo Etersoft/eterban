@@ -120,6 +120,15 @@ def redis_connection_options(config):
         options['ssl'] = True
     return options
 
+
+def run_command(command, **kwargs):
+    """Run an external firewall command without allowing the switcher to hang."""
+    kwargs.setdefault('timeout', 10)
+    try:
+        return subprocess.run(command, **kwargs).returncode
+    except (OSError, subprocess.SubprocessError):
+        return 1
+
 def restore_legacy_ipsets():
     """One-time migration fallback for snapshots made by older releases."""
     global ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol
@@ -139,12 +148,12 @@ def load_whitelist():
         targets.append((ipset_eterban_white_ipv6, 'inet6'))
     temporary = {name: name + '_new' for name, family in targets}
     for name, family in targets:
-        subprocess.call(['ipset', 'destroy', temporary[name]], stdout=subprocess.DEVNULL,
+        run_command(['ipset', 'destroy', temporary[name]], stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL)
         command = ['ipset', 'create', temporary[name], 'hash:net']
         if family == 'inet6':
             command.extend(['family', 'inet6'])
-        if subprocess.call(command) != 0:
+        if run_command(command) != 0:
             raise OSError('unable to create temporary whitelist set ' + temporary[name])
     loaded = 0
     skipped = 0
@@ -163,15 +172,15 @@ def load_whitelist():
                 if name not in temporary:
                     skipped += 1
                     continue
-                if subprocess.call(['ipset', 'add', temporary[name], str(net), '-exist']) != 0:
+                if run_command(['ipset', 'add', temporary[name], str(net), '-exist']) != 0:
                     raise OSError('unable to add whitelist entry ' + str(net))
                 loaded += 1
         for name, family in targets:
-            if subprocess.call(['ipset', 'swap', name, temporary[name]]) != 0:
+            if run_command(['ipset', 'swap', name, temporary[name]]) != 0:
                 raise OSError('unable to activate whitelist set ' + name)
     finally:
         for name in temporary.values():
-            subprocess.call(['ipset', 'destroy', name], stdout=subprocess.DEVNULL,
+            run_command(['ipset', 'destroy', name], stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL)
     info = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     info += " whitelist: loaded " + str(loaded) + " entries from " + whitelist_file
@@ -189,16 +198,16 @@ def ensure_firewall_rule(command):
     try:
         check_command[check_command.index('-I')] = '-C'
     except ValueError:
-        return subprocess.call(command)
-    if subprocess.call(check_command) != 0:
-        return subprocess.call(command)
+        return run_command(command)
+    if run_command(check_command) != 0:
+        return run_command(command)
     return 0
 
 
 def remove_firewall_rule(command):
     """Remove all duplicate copies of a rule during cleanup."""
     result = 0
-    while subprocess.call(command) == 0:
+    while run_command(command) == 0:
         result = 0
     return result
 
@@ -216,7 +225,7 @@ def is_whitelisted(ip_str):
         setname = ipset_eterban_white_ipv6
     else:
         setname = ipset_eterban_white
-    rc = subprocess.call(['ipset', 'test', setname, ip_str],
+    rc = run_command(['ipset', 'test', setname, ip_str],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return rc == 0
 
@@ -292,7 +301,7 @@ def destroy_iptables_rules ():
 
     # Destroy ipsets
     for name in [ipset_eterban_1, ipset_firehol, ipset_eterban_white]:
-        subprocess.call(['ipset', 'destroy', name])
+        run_command(['ipset', 'destroy', name])
 
     # Internal interface: remove outgoing block rules
     if internal_interface:
@@ -319,7 +328,7 @@ def destroy_ip6tables_rules ():
 
     # Destroy ipsets
     for name in [ipset_eterban_1_ipv6, ipset_eterban_white_ipv6]:
-        subprocess.call(['ipset', 'destroy', name])
+        run_command(['ipset', 'destroy', name])
 
     if internal_interface:
         commands=[
@@ -619,7 +628,7 @@ def process_message_inner(message):
             ban = ['ipset', '-A', ipset_eterban_1, ip]
         print (ban)
         print (message)
-        if subprocess.call(ban) != 0:
+        if run_command(ban) != 0:
             log_redis_error("Unable to add ban to ipset: " + ip)
             return False
         if not persist_ban(ip):
