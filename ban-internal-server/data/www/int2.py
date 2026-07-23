@@ -1,5 +1,6 @@
 import socket
 import struct
+import logging
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from html import escape
 from urllib.parse import quote
@@ -9,11 +10,32 @@ import configparser
 import ipaddress
 
 
+logger = logging.getLogger(__name__)
+
+
 # Чтение настроек из INI-файла
 def read_settings(settings_file):
     config = configparser.ConfigParser()
     config.read(settings_file)
     return config['Settings']
+
+
+def redis_connection_options(settings):
+    """Build Redis options, including optional ACL credentials and TLS."""
+    options = {
+        'host': settings.get('redis_server', 'localhost'),
+        'port': settings.getint('redis_port', 6379),
+        'socket_timeout': 5,
+    }
+    username = settings.get('redis_username', '').strip()
+    password = settings.get('redis_password', '').strip()
+    if username:
+        options['username'] = username
+    if password:
+        options['password'] = password
+    if settings.getboolean('redis_tls', False):
+        options['ssl'] = True
+    return options
 
 
 # Функция для получения оригинального адреса назначения
@@ -49,20 +71,16 @@ class OriginalDstHandler(BaseHTTPRequestHandler):
             settings = read_settings(settings_file)
 
             # Подключаемся к Redis
-            host_redis = settings.get('redis_server', 'localhost')
-
             try:
-                r = redis.Redis(host=host_redis, port=6379, socket_timeout=5)
+                r = redis.Redis(**redis_connection_options(settings))
                 r.xadd('eterban:commands', {
                     'command': 'unban', 'ip': ip,
                     'by': f"{ip} was unblocked by {client_ip}",
                 })
                 r.close()
-            except Exception as e:
-                self.send_response(500)
-                self.send_header("Content-type", "text/html")
-                self.end_headers()
-                self.wfile.write(f"Error connecting to Redis: {e}".encode("utf-8"))
+            except (redis.RedisError, ValueError):
+                logger.exception('Unable to enqueue internal unban request')
+                self.send_error(503, 'Unable to process unban request')
                 return
 
             # Возвращаем HTML-страницу с сообщением и JavaScript для перенаправления
