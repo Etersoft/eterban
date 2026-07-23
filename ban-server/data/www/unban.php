@@ -71,11 +71,14 @@ try {
     if ($redis_password !== '' && !$redis->auth($redis_username !== '' ? [$redis_username, $redis_password] : $redis_password)) {
         throw new RedisException('authentication failed');
     }
-    $redis->xAdd('eterban:commands', '*', [
+    $entry_id = $redis->xAdd('eterban:commands', '*', [
         'command' => 'unban',
         'ip' => $ip,
         'by' => $ip . ' was unblocked by ' . $hostname,
     ]);
+    if ($entry_id === false) {
+        throw new RedisException('unable to enqueue unban command');
+    }
     $redis->close();
 } catch (RedisException $error) {
     http_response_code(503);
