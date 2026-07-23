@@ -14,6 +14,7 @@ AutoBanManager - управление автоматической разбло�
 
 import time
 import logging
+from redis.exceptions import WatchError
 
 log = logging.getLogger(__name__)
 
@@ -73,63 +74,70 @@ class AutoBanManager:
         if not self.enabled:
             return None
 
-        try:
-            meta_key = f"{self.META_PREFIX}{ip}"
-            now = int(time.time())
+        meta_key = f"{self.META_PREFIX}{ip}"
+        for _ in range(3):
+            pipeline = self.r.pipeline()
+            try:
+                pipeline.watch(meta_key, self.PERMANENT_KEY)
+                now = int(time.time())
+                existing = pipeline.hgetall(meta_key)
+                is_permanent = pipeline.sismember(self.PERMANENT_KEY, ip)
 
-            # Получаем существующие метаданные
-            existing = self.r.hgetall(meta_key)
-            is_permanent = self.r.sismember(self.PERMANENT_KEY, ip)
+                if existing:
+                    offense_count = int(existing.get(b'offense_count', 0))
+                    last_offense = int(existing.get(b'last_offense', 0))
 
-            if existing:
-                offense_count = int(existing.get(b'offense_count', 0))
-                last_offense = int(existing.get(b'last_offense', 0))
+                    # Проверяем, прошёл ли период сброса (1 год)
+                    if now - last_offense > self.reset_period_seconds:
+                        offense_count = 0
 
-                # Проверяем, прошёл ли период сброса (1 год)
-                if now - last_offense > self.reset_period_seconds:
-                    offense_count = 0
+                    offense_count += 1
+                else:
+                    # Permanent state is authoritative even if old metadata was
+                    # removed by a previous release's TTL or an admin reset.
+                    offense_count = self.max_offense_level + 1 if is_permanent else 1
 
-                offense_count += 1
-            else:
-                # Permanent state is authoritative even if old metadata was
-                # removed by a previous release's TTL or an admin reset.
-                offense_count = self.max_offense_level + 1 if is_permanent else 1
+                # Рассчитываем время бана
+                ban_duration = self.calculate_ban_duration(offense_count)
+                unban_time = now + ban_duration if ban_duration > 0 else 0
 
-            # Рассчитываем время бана
-            ban_duration = self.calculate_ban_duration(offense_count)
-            unban_time = now + ban_duration if ban_duration > 0 else 0
+                # Сохраняем метаданные
+                metadata = {
+                    'offense_count': offense_count,
+                    'ban_time': now,
+                    'unban_time': unban_time,
+                    'last_offense': now,
+                    'source': source,
+                    'reason': reason
+                }
+                pipeline.multi()
+                pipeline.hset(meta_key, mapping=metadata)
 
-            # Сохраняем метаданные
-            metadata = {
-                'offense_count': offense_count,
-                'ban_time': now,
-                'unban_time': unban_time,
-                'last_offense': now,
-                'source': source,
-                'reason': reason
-            }
-            pipeline = self.r.pipeline(transaction=True)
-            pipeline.hset(meta_key, mapping=metadata)
+                # Добавляем в расписание авто-разбана или в постоянные
+                if unban_time > 0:
+                    # Temporary ban history can be reset after a clean period.
+                    pipeline.expire(meta_key, self.reset_period_seconds)
+                    pipeline.zadd(self.SCHEDULE_KEY, {ip: unban_time})
+                    pipeline.srem(self.PERMANENT_KEY, ip)  # На случай если был permanent
+                else:
+                    # Permanent state must not disappear when temporary metadata
+                    # would otherwise reach its one-year TTL.
+                    pipeline.persist(meta_key)
+                    pipeline.sadd(self.PERMANENT_KEY, ip)
+                    pipeline.zrem(self.SCHEDULE_KEY, ip)  # Убираем из расписания
+                pipeline.execute()
 
-            # Добавляем в расписание авто-разбана или в постоянные
-            if unban_time > 0:
-                # Temporary ban history can be reset after a clean period.
-                pipeline.expire(meta_key, self.reset_period_seconds)
-                pipeline.zadd(self.SCHEDULE_KEY, {ip: unban_time})
-                pipeline.srem(self.PERMANENT_KEY, ip)  # На случай если был permanent
-            else:
-                # Permanent state must not disappear when temporary metadata
-                # would otherwise reach its one-year TTL.
-                pipeline.persist(meta_key)
-                pipeline.sadd(self.PERMANENT_KEY, ip)
-                pipeline.zrem(self.SCHEDULE_KEY, ip)  # Убираем из расписания
-            pipeline.execute()
+                return metadata
 
-            return metadata
-
-        except Exception as e:
-            log.error(f"AutoBanManager.on_ban error: {e}")
-            return None
+            except WatchError:
+                continue
+            except Exception as e:
+                log.error(f"AutoBanManager.on_ban error: {e}")
+                return None
+            finally:
+                pipeline.reset()
+        log.error("AutoBanManager.on_ban conflict retries exhausted")
+        return None
 
     def on_unban(self, ip, reset_counter=False):
         """
