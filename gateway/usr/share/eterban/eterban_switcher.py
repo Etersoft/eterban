@@ -666,7 +666,7 @@ def process_message_inner(message):
                 ip = match.group(1)
                 if is_whitelisted(ip):
                     # Whitelisted IPs are not actually banned, so no offense tracking
-                    return
+                    return True
                 source = match.group(2).strip()
                 reason = match.group(3) if match.group(3) else 'auto'
                 meta = auto_mgr.on_ban(ip, source=source, reason=reason)
