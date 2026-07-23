@@ -109,7 +109,7 @@ def parse_config (path_to_config, path_to_log):
 
 
 def redis_connection_options(config):
-    options = {}
+    options = {'port': config.getint('Settings', 'redis_port', fallback=6379)}
     username = config.get('Settings', 'redis_username', fallback='').strip()
     password = config.get('Settings', 'redis_password', fallback='')
     if username:

@@ -5,6 +5,7 @@ session_start();
 $ip = $_SERVER['REMOTE_ADDR'] ?? '';
 $settings = parse_ini_file('/etc/eterban/settings.ini');
 $host_redis = is_array($settings) ? ($settings['redis_server'] ?? '') : '';
+$port_redis = is_array($settings) ? (int)($settings['redis_port'] ?? 6379) : 6379;
 $redis_username = is_array($settings) ? ($settings['redis_username'] ?? '') : '';
 $redis_password = is_array($settings) ? ($settings['redis_password'] ?? '') : '';
 $redis_tls = is_array($settings) && filter_var($settings['redis_tls'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -64,7 +65,7 @@ if (!is_string($nonce) || !is_string($proof) || time() > $expires ||
 try {
     $redis = new Redis();
     $redis_host = $redis_tls ? 'tls://' . $host_redis : $host_redis;
-    if (!$redis->connect($redis_host, 6379, 2.5, null, 0, 0, $redis_tls ? ['stream' => ['verify_peer' => true]] : [])) {
+    if (!$redis->connect($redis_host, $port_redis, 2.5, null, 0, 0, $redis_tls ? ['stream' => ['verify_peer' => true]] : [])) {
         throw new RedisException('connection failed');
     }
     if ($redis_password !== '' && !$redis->auth($redis_username !== '' ? [$redis_username, $redis_password] : $redis_password)) {

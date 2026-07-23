@@ -18,7 +18,7 @@ def get_settings (path_to_config):
     # Читаем некоторые значения из конфиг. файла.
     redis_server = config.get("Settings", "redis_server", fallback = "localhost")
     hostname = config.get("Settings", "hostname", fallback = socket.gethostname())
-    options = {}
+    options = {'port': config.getint("Settings", "redis_port", fallback=6379)}
     username = config.get("Settings", "redis_username", fallback="").strip()
     password = config.get("Settings", "redis_password", fallback="")
     if username:

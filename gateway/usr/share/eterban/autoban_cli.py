@@ -46,7 +46,16 @@ def get_redis():
     config = configparser.ConfigParser()
     config.read(CONFIG_PATH)
     redis_server = config.get('Settings', 'redis_server', fallback='localhost')
-    return redis.Redis(host=redis_server)
+    options = {'port': config.getint('Settings', 'redis_port', fallback=6379)}
+    username = config.get('Settings', 'redis_username', fallback='').strip()
+    password = config.get('Settings', 'redis_password', fallback='')
+    if username:
+        options['username'] = username
+    if password:
+        options['password'] = password
+    if config.getboolean('Settings', 'redis_tls', fallback=False):
+        options['ssl'] = True
+    return redis.Redis(host=redis_server, **options)
 
 
 def cmd_info(ip):
