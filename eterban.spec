@@ -48,6 +48,7 @@ Requires: eterban-common = %EVR
 Requires: nginx
 Requires: %defphp-redis
 Requires: %defphp-fpm-fcgi
+Requires: %defphp-openssl
 
 %description web
 Etersoft ban service.
