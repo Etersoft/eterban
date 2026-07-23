@@ -483,13 +483,22 @@ def restore_bans_from_redis():
         grouped[setname].append(str(address))
 
     for setname, addresses in grouped.items():
+        temporary = setname + '_restore'
         try:
-            subprocess.run(['ipset', 'flush', setname], check=True, timeout=10)
+            run_command(['ipset', 'destroy', temporary], stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL)
+            create_command = ['ipset', 'create', temporary, 'hash:ip', 'maxelem', str(maxelem)]
+            if setname == ipset_eterban_1_ipv6:
+                create_command.extend(['family', 'inet6'])
+            subprocess.run(create_command, check=True, timeout=10)
             for ip in addresses:
-                subprocess.run(['ipset', 'add', setname, ip, '-exist'], check=True, timeout=10)
+                subprocess.run(['ipset', 'add', temporary, ip, '-exist'], check=True, timeout=10)
+            subprocess.run(['ipset', 'swap', setname, temporary], check=True, timeout=10)
         except (OSError, subprocess.SubprocessError) as error:
             log_redis_error("Unable to restore " + setname + " from Redis: " + str(error))
-            continue
+        finally:
+            run_command(['ipset', 'destroy', temporary], stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL)
     log_redis_error("Restored " + str(sum(len(addresses) for addresses in grouped.values())) + " ban entries from Redis")
 
 
