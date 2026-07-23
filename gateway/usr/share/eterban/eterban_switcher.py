@@ -574,8 +574,9 @@ def apply_unban(ip):
         return False
 
     queue_conntrack_cleanup(ip)
-    if auto_mgr.enabled:
-        auto_mgr.on_unban(ip)
+    if auto_mgr.enabled and not auto_mgr.on_unban(ip):
+        log_redis_error("Unable to update AutoBan state for unban " + ip)
+        return False
     return True
 
 
@@ -632,9 +633,9 @@ def process_message_inner(message):
             log.flush()
             return True
         if isinstance(ipo, ipaddress.IPv6Address):
-            ban = ['ipset', '-A', ipset_eterban_1_ipv6, ip]
+            ban = ['ipset', 'add', ipset_eterban_1_ipv6, ip, '-exist']
         else:
-            ban = ['ipset', '-A', ipset_eterban_1, ip]
+            ban = ['ipset', 'add', ipset_eterban_1, ip, '-exist']
         print (ban)
         print (message)
         if run_command(ban) != 0:
@@ -669,16 +670,18 @@ def process_message_inner(message):
                 source = match.group(2).strip()
                 reason = match.group(3) if match.group(3) else 'auto'
                 meta = auto_mgr.on_ban(ip, source=source, reason=reason)
-                if meta:
-                    ban_duration = meta.get('unban_time', 0) - int(time.time())
-                    offense = meta.get('offense_count', 1)
-                    if ban_duration > 0:
-                        auto_info = f"  -> offense #{offense}, auto-unban in {auto_mgr.format_duration(ban_duration)}\n"
-                    else:
-                        auto_info = f"  -> offense #{offense}, PERMANENT ban\n"
-                    print(auto_info)
-                    log.write(auto_info)
-                    log.flush()
+                if not meta:
+                    log_redis_error("Unable to persist AutoBan metadata for " + ip)
+                    return False
+                ban_duration = meta.get('unban_time', 0) - int(time.time())
+                offense = meta.get('offense_count', 1)
+                if ban_duration > 0:
+                    auto_info = f"  -> offense #{offense}, auto-unban in {auto_mgr.format_duration(ban_duration)}\n"
+                else:
+                    auto_info = f"  -> offense #{offense}, PERMANENT ban\n"
+                print(auto_info)
+                log.write(auto_info)
+                log.flush()
         return True
     elif message is not None:
         print ("AHTUNG!!1!", message)

@@ -140,7 +140,7 @@ class AutoBanManager:
             reset_counter: Сбросить счётчик нарушений
         """
         if not self.enabled:
-            return
+            return True
 
         try:
             # Удаляем из расписания и постоянных
@@ -151,9 +151,11 @@ class AutoBanManager:
             if reset_counter:
                 pipeline.delete(f"{self.META_PREFIX}{ip}")
             pipeline.execute()
+            return True
 
         except Exception as e:
             log.error(f"AutoBanManager.on_unban error: {e}")
+            return False
 
     def get_expired_bans(self):
         """
