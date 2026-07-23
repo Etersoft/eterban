@@ -80,7 +80,7 @@ try {
         throw new RedisException('unable to enqueue unban command');
     }
     $redis->close();
-} catch (RedisException $error) {
+} catch (Throwable $error) {
     http_response_code(503);
     error_log('eterban: web unban request was not delivered: ' . $error->getMessage());
     exit('Unban service is temporarily unavailable. Please contact an administrator.');
