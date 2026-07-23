@@ -63,7 +63,8 @@ if (!is_string($nonce) || !is_string($proof) || time() > $expires ||
 
 try {
     $redis = new Redis();
-    if (!$redis->connect($host_redis, 6379, 2.5, null, 0, 0, $redis_tls ? ['stream' => ['verify_peer' => true]] : [])) {
+    $redis_host = $redis_tls ? 'tls://' . $host_redis : $host_redis;
+    if (!$redis->connect($redis_host, 6379, 2.5, null, 0, 0, $redis_tls ? ['stream' => ['verify_peer' => true]] : [])) {
         throw new RedisException('connection failed');
     }
     if ($redis_password !== '' && !$redis->auth($redis_username !== '' ? [$redis_username, $redis_password] : $redis_password)) {
