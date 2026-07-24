@@ -74,7 +74,6 @@ mkdir -p %buildroot%_datadir/%name/
 mkdir -p %buildroot/etc/%name/
 mkdir -p %buildroot/etc/cron.hourly/
 mkdir -p %buildroot/etc/fail2ban/action.d/
-mkdir -p %buildroot/etc/fail2ban/jail.d/
 mkdir -p %buildroot%systemd_unitdir
 mkdir -p %buildroot/var/log/eterban/
 mkdir -p %buildroot%webserver_htdocsdir/%name/
@@ -94,7 +93,6 @@ install -m 644 ban-server/etc/nginx/sites-enabled.d/* %buildroot/etc/nginx/sites
 sed -i 's|@PHP_FPM_SOCKET@|/var/run/php%php_defver-fpm/php%php_defver-fpm.sock|' %buildroot/etc/nginx/sites-enabled.d/eterban.conf
 
 install -m 644 prod-server/etc/fail2ban/action.d/* %buildroot/etc/fail2ban/action.d/
-install -m 644 prod-server/etc/fail2ban/jail.d/jail.conf %buildroot/etc/fail2ban/jail.d/eterban.conf
 
 cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 
@@ -134,7 +132,6 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %files fail2ban
 %_datadir/%name/ban.py
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
-%config(noreplace) /etc/fail2ban/jail.d/eterban.conf
 
 %changelog
 * Tue Jul 08 2026 Vitaly Lipatov <lav@altlinux.ru> 0.11-alt1
