@@ -130,6 +130,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %_datadir/%name/eterban_internal.py
 %systemd_unitdir/eterban-api.service
 %systemd_unitdir/eterban-internal.service
+%exclude %_datadir/%name/__pycache__/*
 
 %files web
 %webserver_htdocsdir/%name/
