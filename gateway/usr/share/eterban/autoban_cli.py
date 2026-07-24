@@ -21,6 +21,7 @@ CONFIG_PATH = '/etc/eterban/settings.ini'
 META_PREFIX = 'eterban:meta:'
 SCHEDULE_KEY = 'eterban:unban_schedule'
 PERMANENT_KEY = 'eterban:permanent'
+ACTIVE_BANS_KEY = 'eterban:active_bans'
 
 
 def format_duration(seconds):
@@ -173,6 +174,26 @@ def cmd_permanent():
             print(f"  {ip}")
 
 
+def cmd_clear():
+    """Queue durable unban commands for every authoritative active ban."""
+    r = get_redis()
+    pipeline = r.pipeline(transaction=False)
+    queued = 0
+    for member in r.sscan_iter(ACTIVE_BANS_KEY):
+        ip = member.decode() if isinstance(member, bytes) else member
+        pipeline.xadd('eterban:commands', {
+            'command': 'unban',
+            'ip': ip,
+            'by': 'all bans cleared by administrator',
+        })
+        queued += 1
+        if queued % 1000 == 0:
+            pipeline.execute()
+    if queued % 1000:
+        pipeline.execute()
+    print(f"Queued {queued} unban commands")
+
+
 def usage():
     print("""Usage: autoban_cli.py <command> [args]
 
@@ -181,6 +202,7 @@ Commands:
     reset <ip>  - reset offense counter for IP
     pending     - list pending auto-unbans
     permanent   - list permanent bans
+    clear       - queue unban for every active ban
 """)
     sys.exit(1)
 
@@ -208,6 +230,9 @@ def main():
 
     elif cmd == 'permanent':
         cmd_permanent()
+
+    elif cmd == 'clear':
+        cmd_clear()
 
     else:
         print(f"Unknown command: {cmd}")

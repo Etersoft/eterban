@@ -84,8 +84,7 @@ if [ "$command" = "clear" ] ; then
         echo "Usage: eterban clear --force" >&2
         exit 2
     fi
-    ipset flush $setname
-    ipset flush $setname_ipv6
+    /usr/share/eterban/autoban_cli.py clear
     exit
 fi
 
