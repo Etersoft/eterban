@@ -452,7 +452,7 @@ def initialize_ban_state():
         if r.exists(redis_bans_initialized_key):
             return
         members = get_ipset_members(ipset_eterban_1)
-        members_ipv6 = get_ipset_members(ipset_eterban_1_ipv6)
+        members_ipv6 = get_ipset_members(ipset_eterban_1_ipv6) if ban_server_ipv6 else []
         if members is None or members_ipv6 is None:
             log_redis_error("Skipped Redis state initialization because ipset migration failed")
             return
