@@ -64,7 +64,8 @@ Etersoft ban service.
 
 %post common
 if [ -f /etc/%name/settings.ini ]; then
-    chmod 600 /etc/%name/settings.ini
+    chown root:%webserver_group /etc/%name/settings.ini
+    chmod 640 /etc/%name/settings.ini
 fi
 
 %prep
@@ -88,7 +89,7 @@ install -m 755 -D gateway/usr/bin/eterban.sh %buildroot%_bindir/%name
 install -m 644 gateway/usr/share/%name/*.py %buildroot%_datadir/%name/
 install -m 755 ban-internal-server/data/www/int2.py %buildroot%_datadir/%name/eterban_internal.py
 
-install -m 600 common/etc/eterban/settings.ini %buildroot/etc/%name/settings.ini
+install -m 644 common/etc/eterban/settings.ini %buildroot/etc/%name/settings.ini
 install -m 644 common/etc/eterban/whitelist.txt %buildroot/etc/%name/whitelist.txt
 
 install -m 644 gateway/etc/systemd/system/* %buildroot/%systemd_unitdir
@@ -113,7 +114,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %preun_service %name-internal
 
 %files common
-%config(noreplace) /etc/%name/settings.ini
+%config(noreplace) %attr(0640,root,%webserver_group) /etc/%name/settings.ini
 %config(noreplace) /etc/%name/whitelist.txt
 
 %files gateway
