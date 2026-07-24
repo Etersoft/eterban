@@ -4,7 +4,7 @@ After=syslog.target network.target
 
 [Service]
 Restart=always
-ExecStart=/usr/share/eterban/eterban_switcher.py
+ExecStart=/usr/bin/python3 /usr/share/eterban/eterban_switcher.py
 
 [Install]
 WantedBy=multi-user.target
