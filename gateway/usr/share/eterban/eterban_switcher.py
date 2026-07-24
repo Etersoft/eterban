@@ -432,7 +432,7 @@ def get_ipset_members(setname):
             check=True, timeout=10)
     except (OSError, subprocess.SubprocessError) as error:
         log_redis_error("Unable to read " + setname + " for Redis migration: " + str(error))
-        return []
+        return None
 
     members = []
     for line in result.stdout.splitlines():
@@ -452,7 +452,11 @@ def initialize_ban_state():
         if r.exists(redis_bans_initialized_key):
             return
         members = get_ipset_members(ipset_eterban_1)
-        members.extend(get_ipset_members(ipset_eterban_1_ipv6))
+        members_ipv6 = get_ipset_members(ipset_eterban_1_ipv6)
+        if members is None or members_ipv6 is None:
+            log_redis_error("Skipped Redis state initialization because ipset migration failed")
+            return
+        members.extend(members_ipv6)
         pipeline = r.pipeline()
         if members:
             pipeline.sadd(redis_bans_key, *members)
