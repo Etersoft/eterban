@@ -30,11 +30,11 @@ interface_name_re = re.compile(r'^[A-Za-z0-9_.:-]+$')
 try:
     path_to_log = '/var/log/eterban/eterban.log'
     log = open (path_to_log, 'a')
-except:
+except OSError:
     try:
         path_to_log = '/var/log/eterban.log'
         log = open (path_to_log,'a')
-    except:
+    except OSError:
         print ("Unknown error with logfile")
         sys.exit()
 
