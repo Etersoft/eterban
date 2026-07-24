@@ -39,11 +39,14 @@ def is_loopback_host(host):
 
 def ipset_test(setname, ip):
     """Check if IP is in ipset. Returns True if found."""
-    result = subprocess.run(
-        ['ipset', 'test', setname, ip],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    return result.returncode == 0
+    try:
+        result = subprocess.run(
+            ['ipset', 'test', setname, ip],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
 
 
 def check_ip(ip_str):
