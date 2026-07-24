@@ -124,7 +124,7 @@ Commands:
     search <ip>   - search for ip in the list of banned IPs
     unban <ip>    - unban IP
     ban <ip>      - ban IP
-    clear --force - remove all IPs from ban
+    clear --force - queue removal of all active bans
     reload-whitelist - reload whitelist.txt without restarting eterban
 
 Auto-unban commands:
