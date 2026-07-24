@@ -62,6 +62,11 @@ Requires: fail2ban
 %description fail2ban
 Etersoft ban service.
 
+%post common
+if [ -f /etc/%name/settings.ini ]; then
+    chmod 600 /etc/%name/settings.ini
+fi
+
 %prep
 %setup
 
