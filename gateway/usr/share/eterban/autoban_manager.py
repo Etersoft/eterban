@@ -14,7 +14,7 @@ AutoBanManager - управление автоматической разбло�
 
 import time
 import logging
-from redis.exceptions import WatchError
+import redis
 
 log = logging.getLogger(__name__)
 
@@ -129,7 +129,7 @@ class AutoBanManager:
 
                 return metadata
 
-            except WatchError:
+            except redis.exceptions.WatchError:
                 continue
             except Exception as e:
                 log.error(f"AutoBanManager.on_ban error: {e}")
