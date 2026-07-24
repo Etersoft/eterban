@@ -83,7 +83,8 @@ install -m 755 -D gateway/usr/bin/eterban.sh %buildroot%_bindir/%name
 install -m 644 gateway/usr/share/%name/*.py %buildroot%_datadir/%name/
 install -m 755 ban-internal-server/data/www/int2.py %buildroot%_datadir/%name/eterban_internal.py
 
-install -m 644 common/etc/eterban/* %buildroot/etc/%name/
+install -m 600 common/etc/eterban/settings.ini %buildroot/etc/%name/settings.ini
+install -m 644 common/etc/eterban/whitelist.txt %buildroot/etc/%name/whitelist.txt
 
 install -m 644 gateway/etc/systemd/system/* %buildroot/%systemd_unitdir
 install -m 644 gateway/etc/cron.hourly/* %buildroot/etc/cron.hourly/
