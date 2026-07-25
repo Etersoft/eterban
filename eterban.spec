@@ -78,6 +78,12 @@ if [ -f /etc/%name/settings.ini ] && getent group %webserver_group >/dev/null; t
     chmod 640 /etc/%name/settings.ini
 fi
 
+%postun web
+if [ "$1" = 0 ] && [ -f /etc/%name/settings.ini ]; then
+    chown root:root /etc/%name/settings.ini
+    chmod 600 /etc/%name/settings.ini
+fi
+
 %prep
 %setup
 
