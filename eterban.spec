@@ -65,8 +65,13 @@ Etersoft ban service.
 
 %post common
 if [ -f /etc/%name/settings.ini ]; then
-    chown root:root /etc/%name/settings.ini
-    chmod 600 /etc/%name/settings.ini
+    if rpm -q --quiet %name-web && getent group %webserver_group >/dev/null; then
+        chown root:%webserver_group /etc/%name/settings.ini
+        chmod 640 /etc/%name/settings.ini
+    else
+        chown root:root /etc/%name/settings.ini
+        chmod 600 /etc/%name/settings.ini
+    fi
 fi
 
 %post web
