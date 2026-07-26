@@ -86,3 +86,11 @@ curl -s http://91.232.225.67:82/ | grep title
 - НЕ банить другие рабочие серверы (sprintbox и т.д.) без крайней необходимости
 - int2.py использует SO_ORIGINAL_DST для определения оригинального IP назначения
 - IPv6 адрес 2a03:5a00:c:20::67 должен быть назначен на vmbr0
+# Static checks
+
+Before building a package, run the syntax regression checks for all shipped
+Python, PHP and shell files:
+
+```sh
+sh tests/static-checks.sh
+```
