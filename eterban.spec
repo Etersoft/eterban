@@ -65,12 +65,8 @@ Etersoft ban service.
 
 %post common
 if [ -f /etc/%name/settings.ini ]; then
-    if getent group %webserver_group >/dev/null; then
-        chown root:%webserver_group /etc/%name/settings.ini
-        chmod 640 /etc/%name/settings.ini
-    else
-        chmod 600 /etc/%name/settings.ini
-    fi
+    chown root:root /etc/%name/settings.ini
+    chmod 600 /etc/%name/settings.ini
 fi
 
 %post web
@@ -131,7 +127,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %preun_service %name-internal
 
 %files common
-%config(noreplace) %attr(0640,root,%webserver_group) /etc/%name/settings.ini
+%config(noreplace) %attr(0600,root,root) /etc/%name/settings.ini
 %config(noreplace) /etc/%name/whitelist.txt
 
 %files gateway
