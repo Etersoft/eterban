@@ -54,3 +54,5 @@ if [ "$status" -ne 78 ]; then
 fi
 
 python3 -c 'import importlib.util; p = "gateway/usr/share/eterban/eterban_api.py"; s = importlib.util.spec_from_file_location("eterban_api", p); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); m.ipset_test = lambda setname, ip: None; assert m.check_ip("192.0.2.1") == {"error": "ipset query failed"}'
+
+python3 -c 'import importlib.util; p = "ban-internal-server/data/www/int2.py"; s = importlib.util.spec_from_file_location("eterban_internal", p); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); m.get_original_dst = lambda request: ("192.0.2.1", 80); m.read_settings = lambda path: (_ for _ in ()).throw(KeyError("Settings")); f = type("F", (), {"path": "/unban", "request": object(), "client_address": ("198.51.100.1", 1), "send_error": lambda self, status, message: setattr(self, "response", (status, message))})(); m.OriginalDstHandler.do_GET(f); assert f.response[0] == 503' >/dev/null 2>&1

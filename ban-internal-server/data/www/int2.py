@@ -67,12 +67,10 @@ class OriginalDstHandler(BaseHTTPRequestHandler):
 
         # Обработка запроса на разблокировку
         if self.path.startswith("/unban"):
-            # Читаем настройки из файла
-            settings_file = '/etc/eterban/settings.ini'
-            settings = read_settings(settings_file)
-
-            # Подключаемся к Redis
             try:
+                # Read configuration and enqueue the command as one failure
+                # domain, so a broken config is reported as a controlled 503.
+                settings = read_settings('/etc/eterban/settings.ini')
                 r = redis.Redis(**redis_connection_options(settings))
                 r.xadd('eterban:commands', {
                     'command': 'unban', 'ip': ip,
