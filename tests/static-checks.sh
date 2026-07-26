@@ -1,6 +1,7 @@
 #!/bin/sh
 # Syntax-only regression checks for files shipped by the Eterban packages.
 set -eu
+export PYTHONDONTWRITEBYTECODE=1
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root"
@@ -56,3 +57,32 @@ fi
 python3 -c 'import importlib.util; p = "gateway/usr/share/eterban/eterban_api.py"; s = importlib.util.spec_from_file_location("eterban_api", p); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); m.ipset_test = lambda setname, ip: None; assert m.check_ip("192.0.2.1") == {"error": "ipset query failed"}'
 
 python3 -c 'import importlib.util; p = "ban-internal-server/data/www/int2.py"; s = importlib.util.spec_from_file_location("eterban_internal", p); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); m.get_original_dst = lambda request: ("192.0.2.1", 80); m.read_settings = lambda path: (_ for _ in ()).throw(KeyError("Settings")); f = type("F", (), {"path": "/unban", "request": object(), "client_address": ("198.51.100.1", 1), "send_error": lambda self, status, message: setattr(self, "response", (status, message))})(); m.OriginalDstHandler.do_GET(f); assert f.response[0] == 503' >/dev/null 2>&1
+
+if rg -q 'exec /usr/share/eterban/.*\.py' gateway/usr/bin/eterban.sh || ! rg -qx 'actionban = /usr/bin/python3 /usr/share/eterban/ban.py <ip> <name>' prod-server/etc/fail2ban/action.d/eterban.conf; then
+    echo 'Python scripts installed with mode 0644 must be invoked through python3' >&2
+    exit 1
+fi
+
+# The launcher is a public administrative interface.  Replacing direct script
+# execution with python3 must not alter its arguments or the child exit status.
+launcher_tmp=$(mktemp -d)
+trap 'rm -rf "$launcher_tmp"' EXIT HUP INT TERM
+printf '%s\n' '#!/bin/sh' 'printf "%s\\n" "$*"' 'exit 23' >"$launcher_tmp/helper"
+chmod 755 "$launcher_tmp/helper"
+sed "s|/usr/bin/python3 /usr/share/eterban/unban.py|$launcher_tmp/helper|; s|/usr/bin/python3 /usr/share/eterban/ban.py|$launcher_tmp/helper|" gateway/usr/bin/eterban.sh >"$launcher_tmp/eterban"
+
+if sh "$launcher_tmp/eterban" unban 192.0.2.1 >"$launcher_tmp/unban.out" 2>&1; then
+    echo 'eterban unban must return the helper status' >&2
+    exit 1
+else
+    status=$?
+fi
+[ "$status" -eq 23 ] && [ "$(cat "$launcher_tmp/unban.out")" = '192.0.2.1' ]
+
+if sh "$launcher_tmp/eterban" ban 192.0.2.1 >"$launcher_tmp/ban.out" 2>&1; then
+    echo 'eterban ban must return the helper status' >&2
+    exit 1
+else
+    status=$?
+fi
+[ "$status" -eq 23 ] && [ "$(cat "$launcher_tmp/ban.out")" = '192.0.2.1 blocked with eterban manually' ]

@@ -24,11 +24,11 @@ if [ "$command" = "list" ] ; then
 fi
 
 if [ "$command" = "unban" ] ; then
-    exec /usr/share/eterban/unban.py "$1"
+    exec /usr/bin/python3 /usr/share/eterban/unban.py "$1"
 fi
 
 if [ "$command" = "ban" ] ; then
-    exec /usr/share/eterban/ban.py "$1" "blocked with eterban manually"
+    exec /usr/bin/python3 /usr/share/eterban/ban.py "$1" "blocked with eterban manually"
 fi
 
 if [ "$command" = "check" ] ; then
@@ -82,7 +82,7 @@ if [ "$command" = "clear" ] ; then
         echo "Usage: eterban clear --force" >&2
         exit 2
     fi
-    exec /usr/share/eterban/autoban_cli.py clear
+    exec /usr/bin/python3 /usr/share/eterban/autoban_cli.py clear
 fi
 
 if [ "$command" = "reload-whitelist" ] ; then
@@ -91,19 +91,19 @@ if [ "$command" = "reload-whitelist" ] ; then
 fi
 
 if [ "$command" = "info" ] ; then
-    exec /usr/share/eterban/autoban_cli.py info "$1"
+    exec /usr/bin/python3 /usr/share/eterban/autoban_cli.py info "$1"
 fi
 
 if [ "$command" = "reset" ] ; then
-    exec /usr/share/eterban/autoban_cli.py reset "$1"
+    exec /usr/bin/python3 /usr/share/eterban/autoban_cli.py reset "$1"
 fi
 
 if [ "$command" = "pending" ] ; then
-    exec /usr/share/eterban/autoban_cli.py pending
+    exec /usr/bin/python3 /usr/share/eterban/autoban_cli.py pending
 fi
 
 if [ "$command" = "permanent" ] ; then
-    exec /usr/share/eterban/autoban_cli.py permanent
+    exec /usr/bin/python3 /usr/share/eterban/autoban_cli.py permanent
 fi
 
 cat <<EOF
