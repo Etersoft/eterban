@@ -63,26 +63,4 @@ if rg -q 'exec /usr/share/eterban/.*\.py' gateway/usr/bin/eterban.sh || ! rg -qx
     exit 1
 fi
 
-# The launcher is a public administrative interface.  Replacing direct script
-# execution with python3 must not alter its arguments or the child exit status.
-launcher_tmp=$(mktemp -d)
-trap 'rm -rf "$launcher_tmp"' EXIT HUP INT TERM
-printf '%s\n' '#!/bin/sh' 'printf "%s\\n" "$*"' 'exit 23' >"$launcher_tmp/helper"
-chmod 755 "$launcher_tmp/helper"
-sed "s|/usr/bin/python3 /usr/share/eterban/unban.py|$launcher_tmp/helper|; s|/usr/bin/python3 /usr/share/eterban/ban.py|$launcher_tmp/helper|" gateway/usr/bin/eterban.sh >"$launcher_tmp/eterban"
-
-if sh "$launcher_tmp/eterban" unban 192.0.2.1 >"$launcher_tmp/unban.out" 2>&1; then
-    echo 'eterban unban must return the helper status' >&2
-    exit 1
-else
-    status=$?
-fi
-[ "$status" -eq 23 ] && [ "$(cat "$launcher_tmp/unban.out")" = '192.0.2.1' ]
-
-if sh "$launcher_tmp/eterban" ban 192.0.2.1 >"$launcher_tmp/ban.out" 2>&1; then
-    echo 'eterban ban must return the helper status' >&2
-    exit 1
-else
-    status=$?
-fi
-[ "$status" -eq 23 ] && [ "$(cat "$launcher_tmp/ban.out")" = '192.0.2.1 blocked with eterban manually' ]
+sh tests/cli-interface.sh
