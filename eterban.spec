@@ -134,6 +134,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %files common
 %config(noreplace) %attr(0600,root,root) /etc/%name/settings.ini
 %config(noreplace) /etc/%name/whitelist.txt
+%_datadir/%name/ban.py
 
 %files gateway
 %systemd_unitdir/eterban.service
@@ -156,7 +157,6 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/nginx/sites-enabled.d/eterban.conf
 
 %files fail2ban
-%_datadir/%name/ban.py
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog

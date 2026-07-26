@@ -73,3 +73,16 @@ for unit in gateway/etc/systemd/system/eterban.service gateway/etc/systemd/syste
         }
     done
 done
+
+awk '
+    $0 == "%files common" { section = "common"; next }
+    /^%files/ { section = "other" }
+    $0 == "%_datadir/%name/ban.py" {
+        if (section == "common") common_ban = 1
+        else misplaced_ban = 1
+    }
+    END { exit !(common_ban && !misplaced_ban) }
+' eterban.spec || {
+    echo 'ban.py must be owned by eterban-common for the public CLI and fail2ban' >&2
+    exit 1
+}
