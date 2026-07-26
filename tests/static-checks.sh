@@ -14,3 +14,8 @@ if python3 gateway/usr/share/eterban/unban.py >/dev/null 2>&1; then
     echo 'unban.py without an IP must fail' >&2
     exit 1
 fi
+
+if python3 -c 'from pathlib import Path; p = Path("prod-server/usr/share/eterban/ban.py"); code = p.read_text().replace("/etc/eterban/settings.ini", "/nonexistent/eterban/settings.ini"); exec(compile(code, str(p), "exec"))' >/dev/null 2>&1; then
+    echo 'ban.py without configuration must fail' >&2
+    exit 1
+fi
