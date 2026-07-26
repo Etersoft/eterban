@@ -97,6 +97,7 @@ fi
 mkdir -p %buildroot%_datadir/%name/
 mkdir -p %buildroot/etc/%name/
 mkdir -p %buildroot/etc/cron.hourly/
+mkdir -p %buildroot/etc/logrotate.d/
 mkdir -p %buildroot/etc/fail2ban/action.d/
 mkdir -p %buildroot%systemd_unitdir
 mkdir -p %buildroot/var/log/eterban/
@@ -104,14 +105,15 @@ mkdir -p %buildroot%webserver_htdocsdir/%name/
 mkdir -p %buildroot/etc/nginx/sites-enabled.d/
 
 install -m 755 -D gateway/usr/bin/eterban.sh %buildroot%_bindir/%name
-install -m 644 gateway/usr/share/%name/*.py %buildroot%_datadir/%name/
-install -m 755 ban-internal-server/data/www/int2.py %buildroot%_datadir/%name/eterban_internal.py
+install -m 755 gateway/usr/share/%name/*.py %buildroot%_datadir/%name/
+install -m 644 ban-internal-server/data/www/int2.py %buildroot%_datadir/%name/eterban_internal.py
 
 install -m 644 common/etc/eterban/settings.ini %buildroot/etc/%name/settings.ini
 install -m 644 common/etc/eterban/whitelist.txt %buildroot/etc/%name/whitelist.txt
 
 install -m 644 gateway/etc/systemd/system/* %buildroot/%systemd_unitdir
 install -m 755 gateway/etc/cron.hourly/get_firehol_ip.sh %buildroot/etc/cron.hourly/get_firehol_ip.sh
+install -m 644 gateway/etc/logrotate.d/eterban %buildroot/etc/logrotate.d/eterban
 
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
 install -m 644 ban-server/etc/nginx/sites-enabled.d/* %buildroot/etc/nginx/sites-enabled.d/
@@ -140,7 +142,8 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %systemd_unitdir/eterban.service
 %_bindir/eterban
 %dir /var/log/eterban/
-%config(noreplace) /etc/cron.hourly/get_firehol_ip.sh
+/etc/cron.hourly/get_firehol_ip.sh
+%config(noreplace) /etc/logrotate.d/eterban
 %dir %_datadir/%name/
 %_datadir/%name/eterban_switcher.py
 %_datadir/%name/unban.py

@@ -1,0 +1,9 @@
+/var/log/eterban/eterban.log {
+    weekly
+    rotate 12
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 0640 root root
+}
