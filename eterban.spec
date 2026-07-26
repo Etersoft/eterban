@@ -113,7 +113,7 @@ install -m 644 common/etc/eterban/whitelist.txt %buildroot/etc/%name/whitelist.t
 
 install -m 644 gateway/etc/systemd/system/* %buildroot/%systemd_unitdir
 install -m 755 gateway/etc/cron.hourly/get_firehol_ip.sh %buildroot/etc/cron.hourly/get_firehol_ip.sh
-install -m 644 gateway/etc/logrotate.d/eterban %buildroot/etc/logrotate.d/eterban
+install -m 644 gateway/etc/logrotate.d/eterban-gateway %buildroot/etc/logrotate.d/eterban-gateway
 
 install -m 644 ban-server/data/www/* %buildroot%webserver_htdocsdir/%name/
 install -m 644 ban-server/etc/nginx/sites-enabled.d/* %buildroot/etc/nginx/sites-enabled.d/
