@@ -24,13 +24,11 @@ if [ "$command" = "list" ] ; then
 fi
 
 if [ "$command" = "unban" ] ; then
-    /usr/share/eterban/unban.py $1
-    exit
+    exec /usr/share/eterban/unban.py "$1"
 fi
 
 if [ "$command" = "ban" ] ; then
-    /usr/share/eterban/ban.py $1 "blocked with eterban manually"
-    exit
+    exec /usr/share/eterban/ban.py "$1" "blocked with eterban manually"
 fi
 
 if [ "$command" = "check" ] ; then
@@ -84,33 +82,28 @@ if [ "$command" = "clear" ] ; then
         echo "Usage: eterban clear --force" >&2
         exit 2
     fi
-    /usr/share/eterban/autoban_cli.py clear
-    exit
+    exec /usr/share/eterban/autoban_cli.py clear
 fi
 
 if [ "$command" = "reload-whitelist" ] ; then
     systemctl kill --signal=HUP eterban.service
-    exit
+    exit $?
 fi
 
 if [ "$command" = "info" ] ; then
-    /usr/share/eterban/autoban_cli.py info $1
-    exit
+    exec /usr/share/eterban/autoban_cli.py info "$1"
 fi
 
 if [ "$command" = "reset" ] ; then
-    /usr/share/eterban/autoban_cli.py reset $1
-    exit
+    exec /usr/share/eterban/autoban_cli.py reset "$1"
 fi
 
 if [ "$command" = "pending" ] ; then
-    /usr/share/eterban/autoban_cli.py pending
-    exit
+    exec /usr/share/eterban/autoban_cli.py pending
 fi
 
 if [ "$command" = "permanent" ] ; then
-    /usr/share/eterban/autoban_cli.py permanent
-    exit
+    exec /usr/share/eterban/autoban_cli.py permanent
 fi
 
 cat <<EOF
