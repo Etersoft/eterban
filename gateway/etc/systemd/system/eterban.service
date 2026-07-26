@@ -6,6 +6,11 @@ After=syslog.target network.target
 Restart=always
 RestartPreventExitStatus=78
 ExecStart=/usr/bin/python3 /usr/share/eterban/eterban_switcher.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target

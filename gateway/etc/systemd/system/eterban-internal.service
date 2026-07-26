@@ -8,6 +8,11 @@ ExecStart=/usr/bin/python3 /usr/share/eterban/eterban_internal.py
 Restart=on-failure
 RestartSec=5
 RestartPreventExitStatus=78
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target

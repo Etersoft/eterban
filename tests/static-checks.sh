@@ -64,3 +64,12 @@ if rg -q 'exec /usr/share/eterban/.*\.py' gateway/usr/bin/eterban.sh || ! rg -qx
 fi
 
 sh tests/cli-interface.sh
+
+for unit in gateway/etc/systemd/system/eterban.service gateway/etc/systemd/system/eterban-api.service gateway/etc/systemd/system/eterban-internal.service; do
+    for directive in 'NoNewPrivileges=true' 'PrivateTmp=true' 'ProtectHome=true' 'ProtectSystem=full' 'UMask=0077'; do
+        rg -qx "$directive" "$unit" || {
+            echo "$unit is missing $directive" >&2
+            exit 1
+        }
+    done
+done
