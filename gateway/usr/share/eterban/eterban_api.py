@@ -138,19 +138,23 @@ def main():
     host = LISTEN_HOST
     port = LISTEN_PORT
 
-    # Allow override from config
-    if os.path.exists(path_to_config):
-        config = configparser.ConfigParser()
-        config.read(path_to_config)
-        host = config.get('API', 'listen_host', fallback=LISTEN_HOST)
-        port = config.getint('API', 'listen_port', fallback=LISTEN_PORT)
-        API_TOKEN = config.get('API', 'api_token', fallback='').strip()
-        API_RATE_LIMIT = config.getint('API', 'rate_limit_per_minute', fallback=60)
+    try:
+        # Allow override from config
+        if os.path.exists(path_to_config):
+            config = configparser.ConfigParser()
+            config.read(path_to_config)
+            host = config.get('API', 'listen_host', fallback=LISTEN_HOST)
+            port = config.getint('API', 'listen_port', fallback=LISTEN_PORT)
+            API_TOKEN = config.get('API', 'api_token', fallback='').strip()
+            API_RATE_LIMIT = config.getint('API', 'rate_limit_per_minute', fallback=60)
 
-    if not is_loopback_host(host) and not API_TOKEN:
-        raise RuntimeError('API token is required for a non-loopback listen_host')
-    if API_RATE_LIMIT < 1:
-        raise RuntimeError('API rate_limit_per_minute must be positive')
+        if not is_loopback_host(host) and not API_TOKEN:
+            raise ValueError('API token is required for a non-loopback listen_host')
+        if API_RATE_LIMIT < 1:
+            raise ValueError('API rate_limit_per_minute must be positive')
+    except (ValueError, configparser.Error) as error:
+        print('Invalid Eterban API configuration: ' + str(error), file=sys.stderr)
+        raise SystemExit(78)
 
     server = http.server.HTTPServer((host, port), EterbanAPIHandler)
     print(f"Eterban API listening on {host}:{port}")

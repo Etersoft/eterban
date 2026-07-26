@@ -41,3 +41,14 @@ if [ "$status" -ne 78 ]; then
     echo "internal service without configuration returned $status, expected 78" >&2
     exit 1
 fi
+
+if printf '%s\n' '[API]' 'rate_limit_per_minute = 0' | (cd gateway/usr/share/eterban && python3 -c 'from pathlib import Path; p = Path("eterban_api.py"); code = p.read_text().replace("/etc/eterban/settings.ini", "/proc/self/fd/0"); exec(compile(code, str(p), "exec"))') >/dev/null 2>&1; then
+    echo 'API service with invalid configuration must fail' >&2
+    exit 1
+else
+    status=$?
+fi
+if [ "$status" -ne 78 ]; then
+    echo "API service with invalid configuration returned $status, expected 78" >&2
+    exit 1
+fi
