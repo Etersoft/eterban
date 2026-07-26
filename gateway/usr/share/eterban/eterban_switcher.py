@@ -45,7 +45,7 @@ def parse_config (path_to_config, path_to_log):
         info +=' ' + 'Problem in config file (' + path_to_config + '). Check him!'
         with open(path_to_log, "a") as log_file:
             log_file.write(info)
-        sys.exit(1)
+        sys.exit(78)
 
     config = configparser.ConfigParser()
     config.read(path_to_config)
@@ -96,14 +96,14 @@ def parse_config (path_to_config, path_to_log):
         info += " Problem in config file (" + path_to_config + "): " + str(error) + "\n"
         with open(path_to_log, "a") as log_file:
             log_file.write(info)
-        sys.exit(1)
+        sys.exit(78)
 
     if redis_server == "redis_server" or ban_server == "ban_server" or not wan_ifaces:
         info = time.strftime( "%Y-%m-%d %H:%M:%S", time.localtime())
         info +=' ' + 'Problem in config file (' + path_to_config + '). Check him!'
         with open(path_to_log, "a") as log_file:
             log_file.write(info)
-        sys.exit(1)
+        sys.exit(78)
     else:
         return (redis_server, ban_server, ban_server_ipv6, wan_ifaces, internal_interface, maxelem, whitelist_file)
 

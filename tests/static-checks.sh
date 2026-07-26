@@ -19,3 +19,14 @@ if python3 -c 'from pathlib import Path; p = Path("prod-server/usr/share/eterban
     echo 'ban.py without configuration must fail' >&2
     exit 1
 fi
+
+if (cd gateway/usr/share/eterban && python3 -c 'from pathlib import Path; p = Path("eterban_switcher.py"); code = p.read_text().replace("/etc/eterban/settings.ini", "/dev/null").replace("/var/log/eterban/eterban.log", "/tmp/eterban-switcher-static-check.log"); exec(compile(code, str(p), "exec"))') >/dev/null 2>&1; then
+    echo 'switcher without configuration must fail' >&2
+    exit 1
+else
+    status=$?
+fi
+if [ "$status" -ne 78 ]; then
+    echo "switcher without configuration returned $status, expected 78" >&2
+    exit 1
+fi
