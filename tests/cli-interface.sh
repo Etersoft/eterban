@@ -26,6 +26,9 @@ cat >"$bin_dir/ipset" <<'EOF'
 printf 'ipset %s\n' "$*" >>"$ETERBAN_TEST_RECORD"
 case "$1" in
     list)
+        case " ${ETERBAN_TEST_LIST_FAILURES:-} " in
+            *" $2 "*) exit 1 ;;
+        esac
         printf 'Name: %s\nNumber of entries: %s\n192.0.2.1\n' "$2" "${ETERBAN_TEST_COUNT:-2}"
         ;;
     test)
@@ -67,6 +70,7 @@ run_cli() {
     : >"$test_tmp/stderr"
     if ETERBAN_TEST_RECORD="$record" ETERBAN_TEST_STATUS="${ETERBAN_TEST_STATUS:-0}" \
         ETERBAN_TEST_MATCHES="${ETERBAN_TEST_MATCHES:-}" ETERBAN_TEST_COUNT="${ETERBAN_TEST_COUNT:-2}" \
+        ETERBAN_TEST_LIST_FAILURES="${ETERBAN_TEST_LIST_FAILURES:-}" \
         sh "$test_tmp/eterban" "$@" >"$test_tmp/stdout" 2>"$test_tmp/stderr"; then
         cli_status=0
     else
@@ -84,6 +88,14 @@ ETERBAN_TEST_STATUS=0 ETERBAN_TEST_MATCHES='' run_cli list
 assert_status "$cli_status" 0
 assert_file 'ipset list eterban_1
 ipset list eterban_1_ipv6' "$record"
+
+ETERBAN_TEST_STATUS=0 ETERBAN_TEST_MATCHES='' ETERBAN_TEST_LIST_FAILURES='eterban_1' run_cli count
+assert_status "$cli_status" 1
+[ ! -s "$test_tmp/stdout" ] || fail 'count emitted a false result after an ipset failure'
+
+ETERBAN_TEST_STATUS=0 ETERBAN_TEST_MATCHES='' ETERBAN_TEST_LIST_FAILURES='eterban_1' run_cli list
+assert_status "$cli_status" 1
+assert_file 'ipset list eterban_1' "$record"
 
 ETERBAN_TEST_STATUS=0 ETERBAN_TEST_MATCHES='eterban_1' run_cli check 192.0.2.1
 assert_status "$cli_status" 0
