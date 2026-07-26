@@ -25,6 +25,7 @@ def redis_connection_options(settings):
     options = {
         'host': settings.get('redis_server', 'localhost'),
         'port': settings.getint('redis_port', 6379),
+        'socket_connect_timeout': 5,
         'socket_timeout': 5,
     }
     username = settings.get('redis_username', '').strip()

@@ -47,7 +47,11 @@ def get_redis():
     config = configparser.ConfigParser()
     config.read(CONFIG_PATH)
     redis_server = config.get('Settings', 'redis_server', fallback='localhost')
-    options = {'port': config.getint('Settings', 'redis_port', fallback=6379)}
+    options = {
+        'port': config.getint('Settings', 'redis_port', fallback=6379),
+        'socket_connect_timeout': 5,
+        'socket_timeout': 5,
+    }
     username = config.get('Settings', 'redis_username', fallback='').strip()
     password = config.get('Settings', 'redis_password', fallback='')
     if username:
