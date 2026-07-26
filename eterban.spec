@@ -6,7 +6,7 @@ Release: alt1
 
 Summary: Etersoft ban service
 
-License: AGPLv3
+License: AGPL-3.0-only
 Group: Development/Other
 Url: http://wiki.etersoft.ru/eterban
 
