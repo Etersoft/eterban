@@ -78,7 +78,7 @@ class OriginalDstHandler(BaseHTTPRequestHandler):
                     'by': f"{ip} was unblocked by {client_ip}",
                 })
                 r.close()
-            except (redis.RedisError, ValueError):
+            except (redis.RedisError, ValueError, KeyError, configparser.Error):
                 logger.exception('Unable to enqueue internal unban request')
                 self.send_error(503, 'Unable to process unban request')
                 return
