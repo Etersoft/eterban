@@ -7,6 +7,7 @@ Type=simple
 ExecStart=/usr/bin/python3 /usr/share/eterban/eterban_internal.py
 Restart=on-failure
 RestartSec=5
+RestartPreventExitStatus=78
 
 [Install]
 WantedBy=multi-user.target

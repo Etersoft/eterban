@@ -144,5 +144,9 @@ def run_server(host, port=82):
     httpd.serve_forever()
 
 if __name__ == "__main__":
-    settings = read_settings('/etc/eterban/settings.ini')
-    run_server(settings['ban_server'])
+    try:
+        settings = read_settings('/etc/eterban/settings.ini')
+        run_server(settings['ban_server'])
+    except (KeyError, ValueError, configparser.Error) as error:
+        logger.error('Invalid Eterban configuration: %s', error)
+        raise SystemExit(78)

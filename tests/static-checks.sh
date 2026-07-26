@@ -30,3 +30,14 @@ if [ "$status" -ne 78 ]; then
     echo "switcher without configuration returned $status, expected 78" >&2
     exit 1
 fi
+
+if (cd ban-internal-server/data/www && python3 -c 'from pathlib import Path; p = Path("int2.py"); code = p.read_text().replace("/etc/eterban/settings.ini", "/dev/null"); exec(compile(code, str(p), "exec"))') >/dev/null 2>&1; then
+    echo 'internal service without configuration must fail' >&2
+    exit 1
+else
+    status=$?
+fi
+if [ "$status" -ne 78 ]; then
+    echo "internal service without configuration returned $status, expected 78" >&2
+    exit 1
+fi
