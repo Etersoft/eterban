@@ -18,6 +18,7 @@ BuildArchitectures: noarch
 # error: File must begin with "/": %webserver_htdocsdir/maintenance/
 BuildRequires(pre): rpm-macros-webserver-common
 BuildRequires(pre): rpm-build-python3 rpm-build-php
+BuildRequires: wget
 
 #Requires: python3 python3-module-redis-py
 %add_python3_lib_path /usr/share/eterban
