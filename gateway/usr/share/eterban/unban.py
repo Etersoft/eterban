@@ -10,7 +10,7 @@ import ipaddress
 def get_settings (path_to_config):
     if not os.path.exists(path_to_config):
         print("Missed config file")
-        sys.exit()
+        sys.exit(1)
 
     config = configparser.ConfigParser()
     config.read(path_to_config)
@@ -40,7 +40,7 @@ else:
 
 if not ip:
     print("Run with IP arg")
-    sys.exit()
+    sys.exit(1)
 try:
     ip = str(ipaddress.ip_network(ip, strict=False))
 except ValueError:
