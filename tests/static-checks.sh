@@ -52,3 +52,5 @@ if [ "$status" -ne 78 ]; then
     echo "API service with invalid configuration returned $status, expected 78" >&2
     exit 1
 fi
+
+python3 -c 'import importlib.util; p = "gateway/usr/share/eterban/eterban_api.py"; s = importlib.util.spec_from_file_location("eterban_api", p); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); m.ipset_test = lambda setname, ip: None; assert m.check_ip("192.0.2.1") == {"error": "ipset query failed"}'

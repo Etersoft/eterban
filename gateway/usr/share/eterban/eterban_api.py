@@ -38,15 +38,30 @@ def is_loopback_host(host):
 
 
 def ipset_test(setname, ip):
-    """Check if IP is in ipset. Returns True if found."""
+    """Check an IP in an ipset.
+
+    Returns True or False for a successful query and None if the set cannot be
+    queried.  ``ipset test`` uses exit status 1 both for a missing set and an
+    address which is not present, so verify that the set exists first.
+    """
     try:
+        listed = subprocess.run(
+            ['ipset', 'list', setname],
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=5
+        )
+        if listed.returncode != 0:
+            return None
         result = subprocess.run(
             ['ipset', 'test', setname, ip],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5
         )
-        return result.returncode == 0
+        if result.returncode == 0:
+            return True
+        if result.returncode == 1:
+            return False
+        return None
     except (OSError, subprocess.SubprocessError):
-        return False
+        return None
 
 
 def check_ip(ip_str):
@@ -57,27 +72,20 @@ def check_ip(ip_str):
         return {'error': 'invalid IP address'}
 
     if isinstance(addr, ipaddress.IPv6Address):
-        banned = ipset_test(IPSET_V6, ip_str)
-        ipset_name = IPSET_V6
+        checks = [('banned', IPSET_V6), ('whitelisted', IPSET_WHITE_V6)]
     else:
-        banned = ipset_test(IPSET_V4, ip_str)
-        ipset_name = IPSET_V4
+        checks = [
+            ('banned', IPSET_V4),
+            ('firehol', IPSET_FIREHOL),
+            ('whitelisted', IPSET_WHITE),
+        ]
 
-    result = {
-        'ip': ip_str,
-        'banned': banned,
-        'ipset': ipset_name,
-    }
-
-    # Check firehol (IPv4 only, it's hash:net)
-    if isinstance(addr, ipaddress.IPv4Address):
-        result['firehol'] = ipset_test(IPSET_FIREHOL, ip_str)
-
-    # Check whitelist
-    if isinstance(addr, ipaddress.IPv6Address):
-        result['whitelisted'] = ipset_test(IPSET_WHITE_V6, ip_str)
-    else:
-        result['whitelisted'] = ipset_test(IPSET_WHITE, ip_str)
+    result = {'ip': ip_str, 'ipset': checks[0][1]}
+    for field, setname in checks:
+        value = ipset_test(setname, ip_str)
+        if value is None:
+            return {'error': 'ipset query failed'}
+        result[field] = value
 
     return result
 
@@ -118,7 +126,7 @@ class EterbanAPIHandler(http.server.BaseHTTPRequestHandler):
         if self.path.startswith('/check/'):
             ip_str = self.path[len('/check/'):]
             result = check_ip(ip_str)
-            status = 400 if 'error' in result else 200
+            status = 400 if result.get('error') == 'invalid IP address' else 503 if 'error' in result else 200
             self._send_json(status, result)
             return
 
