@@ -16,7 +16,7 @@ def get_ip_argument(argv):
 def get_settings (path_to_config):
     if not os.path.exists(path_to_config):
         print("Missed config file")
-        sys.exit()
+        sys.exit(1)
 
     config = configparser.ConfigParser()
     config.read(path_to_config)
