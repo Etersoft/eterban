@@ -2,7 +2,7 @@
 
 Name: eterban
 Version: 0.11
-Release: alt2
+Release: alt3
 
 Summary: Etersoft ban service
 
@@ -164,6 +164,9 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Tue Jul 28 2026 Vitaly Lipatov <lav@altlinux.ru> 0.11-alt3
+- gateway: do not restore legacy ipset snapshots over active sets
+
 * Tue Jul 28 2026 Vitaly Lipatov <lav@altlinux.ru> 0.11-alt2
 - gateway: restore Redis Stream command consumption after reconnect
 - gateway: send public and internal ban redirects to separate ports
