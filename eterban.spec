@@ -143,7 +143,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %_bindir/eterban
 %dir /var/log/eterban/
 /etc/cron.hourly/get_firehol_ip.sh
-%config(noreplace) /etc/logrotate.d/eterban
+%config(noreplace) /etc/logrotate.d/eterban-gateway
 %dir %_datadir/%name/
 %_datadir/%name/eterban_switcher.py
 %_datadir/%name/unban.py
