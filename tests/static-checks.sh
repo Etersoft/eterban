@@ -86,3 +86,16 @@ awk '
     echo 'ban.py must be owned by eterban-common for the public CLI and fail2ban' >&2
     exit 1
 }
+
+awk '
+    $0 == "%package gateway" { in_gateway = 1; next }
+    in_gateway && /^%description gateway/ { exit !(has_crontabs && has_logrotate) }
+    in_gateway && /^Requires:/ {
+        if ($0 ~ /(^|[[:space:]])crontabs([[:space:]]|$)/) has_crontabs = 1
+        if ($0 ~ /(^|[[:space:]])logrotate([[:space:]]|$)/) has_logrotate = 1
+    }
+    END { exit !(has_crontabs && has_logrotate) }
+' eterban.spec || {
+    echo 'gateway package must require crontabs and logrotate' >&2
+    exit 1
+}
