@@ -72,6 +72,15 @@ rg -Fq "'80,81,443'" gateway/usr/share/eterban/eterban_switcher.py || {
     exit 1
 }
 
+rg -Fqx '        listen 81;' ban-server/etc/nginx/sites-enabled.d/eterban.conf && \
+rg -Fq 'run_server(settings['"'"'ban_server'"'"'])' ban-internal-server/data/www/int2.py && \
+rg -Fq 'port=82' ban-internal-server/data/www/int2.py && \
+rg -Fq 'Для разблокировки нажмите:' ban-server/data/www/index.html && \
+rg -Fq 'You accessed:' ban-internal-server/data/www/int2.py || {
+    echo 'public and internal ban pages must remain separate user flows' >&2
+    exit 1
+}
+
 for unit in gateway/etc/systemd/system/eterban.service gateway/etc/systemd/system/eterban-api.service gateway/etc/systemd/system/eterban-internal.service; do
     for directive in 'NoNewPrivileges=true' 'PrivateTmp=true' 'ProtectHome=true' 'ProtectSystem=full' 'UMask=0077'; do
         rg -qx "$directive" "$unit" || {
