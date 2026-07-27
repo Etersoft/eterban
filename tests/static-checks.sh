@@ -65,6 +65,13 @@ fi
 
 sh tests/cli-interface.sh
 
+rg -Fq "ban_server + ':81'" gateway/usr/share/eterban/eterban_switcher.py && \
+rg -Fq "'[' + ban_server_ipv6 + ']:81'" gateway/usr/share/eterban/eterban_switcher.py && \
+rg -Fq "'80,81,443'" gateway/usr/share/eterban/eterban_switcher.py || {
+    echo 'external IPv4/IPv6 ban redirects must target public port 81' >&2
+    exit 1
+}
+
 for unit in gateway/etc/systemd/system/eterban.service gateway/etc/systemd/system/eterban-api.service gateway/etc/systemd/system/eterban-internal.service; do
     for directive in 'NoNewPrivileges=true' 'PrivateTmp=true' 'ProtectHome=true' 'ProtectSystem=full' 'UMask=0077'; do
         rg -qx "$directive" "$unit" || {
