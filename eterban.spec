@@ -164,7 +164,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
-* Tue Jul 08 2026 Vitaly Lipatov <lav@altlinux.ru> 0.11-alt1
+* Wed Jul 08 2026 Vitaly Lipatov <lav@altlinux.ru> 0.11-alt1
 - gateway: support list of WAN interfaces via i_interfaces config option
 - spec: add whitelist.txt to common package
 
