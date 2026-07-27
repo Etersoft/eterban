@@ -533,6 +533,7 @@ def connect_redis():
             redis_client = redis.Redis(
                 host=redis_server,
                 socket_connect_timeout=5,
+                socket_timeout=10,
                 socket_keepalive=True,
                 health_check_interval=30,
                 **redis_options,
@@ -722,17 +723,28 @@ def process_stream_entry(fields):
     return success
 
 
+claim_interval_seconds = 60
+next_claim_at = 0
+read_pending = True
+
 while True:
     try:
-        claimed = r.xautoclaim(redis_commands_stream, redis_commands_group,
-                               redis_commands_consumer, min_idle_time=60000,
-                               start_id='0-0', count=10)
-        entries = [(redis_commands_stream, claimed[1])] if claimed[1] else []
-        if not entries:
-            pending = r.xreadgroup(redis_commands_group, redis_commands_consumer,
+        entries = []
+        if read_pending:
+            entries = r.xreadgroup(redis_commands_group, redis_commands_consumer,
                                    {redis_commands_stream: '0'}, count=10)
-            entries = pending or r.xreadgroup(redis_commands_group, redis_commands_consumer,
-                                              {redis_commands_stream: '>'}, count=10, block=5000)
+            read_pending = bool(entries)
+        if not entries and time.monotonic() >= next_claim_at:
+            claimed = r.xautoclaim(redis_commands_stream, redis_commands_group,
+                                   redis_commands_consumer, min_idle_time=60000,
+                                   start_id='0-0', count=10)
+            entries = [(redis_commands_stream, claimed[1])] if claimed[1] else []
+            next_claim_at = time.monotonic() + claim_interval_seconds
+        if not entries:
+            entries = r.xreadgroup(redis_commands_group, redis_commands_consumer,
+                                   {redis_commands_stream: '>'}, count=10, block=5000)
+        if not entries:
+            time.sleep(0.1)
         for stream, messages in entries:
             for message_id, fields in messages:
                 if process_stream_entry(fields):
@@ -741,3 +753,5 @@ while True:
         log_redis_error("Redis Stream read failed: " + str(error) + "; reconnecting")
         r = connect_redis()
         auto_mgr.r = r
+        next_claim_at = 0
+        read_pending = True

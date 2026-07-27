@@ -70,7 +70,10 @@ rg -Fq "'[' + ban_server_ipv6 + ']:81'" gateway/usr/share/eterban/eterban_switch
 rg -Fq "'80,81,443'" gateway/usr/share/eterban/eterban_switcher.py && \
 rg -Fq "ipset_firehol, 'src', '-p', 'tcp', '-j', 'DNAT'" gateway/usr/share/eterban/eterban_switcher.py && \
 rg -Fq "ipset_eterban_1, 'src', '-p', 'tcp', '-j', 'DNAT'" gateway/usr/share/eterban/eterban_switcher.py && \
-rg -Fq "ipset_eterban_1_ipv6, 'src', '-p', 'tcp', '-j', 'DNAT'" gateway/usr/share/eterban/eterban_switcher.py || {
+rg -Fq "ipset_eterban_1_ipv6, 'src', '-p', 'tcp', '-j', 'DNAT'" gateway/usr/share/eterban/eterban_switcher.py && \
+rg -Fq 'claim_interval_seconds = 60' gateway/usr/share/eterban/eterban_switcher.py && \
+rg -Fq 'time.monotonic() >= next_claim_at' gateway/usr/share/eterban/eterban_switcher.py && \
+rg -Fq 'socket_timeout=10' gateway/usr/share/eterban/eterban_switcher.py || {
     echo 'external IPv4/IPv6 ban redirects must target public port 81' >&2
     exit 1
 }
