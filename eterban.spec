@@ -38,6 +38,7 @@ Summary: Etersoft ban service: gateway
 Group: Development/Other
 Requires: eterban-common = %EVR
 Requires: iptables ipset conntrack-tools
+Requires: crontabs logrotate
 
 %description gateway
 Etersoft ban service.
