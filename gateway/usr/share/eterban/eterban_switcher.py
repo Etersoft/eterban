@@ -135,7 +135,11 @@ def restore_legacy_ipsets():
     name_list = [ipset_eterban_1, ipset_eterban_1_ipv6, ipset_firehol]
     for name in name_list:
         snapshot = '/usr/share/eterban/' + name
-        if os.path.exists(snapshot):
+        if not os.path.exists(snapshot):
+            continue
+        exists = subprocess.run(['ipset', 'list', name], stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL, timeout=10).returncode == 0
+        if not exists:
             subprocess.run(['ipset', 'restore', '--file', snapshot], check=True, timeout=10)
 
 
