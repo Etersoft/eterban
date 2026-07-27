@@ -2,7 +2,7 @@
 
 Name: eterban
 Version: 0.11
-Release: alt1
+Release: alt2
 
 Summary: Etersoft ban service
 
@@ -164,6 +164,11 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Tue Jul 28 2026 Vitaly Lipatov <lav@altlinux.ru> 0.11-alt2
+- gateway: restore Redis Stream command consumption after reconnect
+- gateway: send public and internal ban redirects to separate ports
+- packaging: harden services and correct installed file ownership
+
 * Wed Jul 08 2026 Vitaly Lipatov <lav@altlinux.ru> 0.11-alt1
 - gateway: support list of WAN interfaces via i_interfaces config option
 - spec: add whitelist.txt to common package
