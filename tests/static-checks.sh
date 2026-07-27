@@ -67,7 +67,10 @@ sh tests/cli-interface.sh
 
 rg -Fq "ban_server + ':81'" gateway/usr/share/eterban/eterban_switcher.py && \
 rg -Fq "'[' + ban_server_ipv6 + ']:81'" gateway/usr/share/eterban/eterban_switcher.py && \
-rg -Fq "'80,81,443'" gateway/usr/share/eterban/eterban_switcher.py || {
+rg -Fq "'80,81,443'" gateway/usr/share/eterban/eterban_switcher.py && \
+rg -Fq "ipset_firehol, 'src', '-p', 'tcp', '-j', 'DNAT'" gateway/usr/share/eterban/eterban_switcher.py && \
+rg -Fq "ipset_eterban_1, 'src', '-p', 'tcp', '-j', 'DNAT'" gateway/usr/share/eterban/eterban_switcher.py && \
+rg -Fq "ipset_eterban_1_ipv6, 'src', '-p', 'tcp', '-j', 'DNAT'" gateway/usr/share/eterban/eterban_switcher.py || {
     echo 'external IPv4/IPv6 ban redirects must target public port 81' >&2
     exit 1
 }

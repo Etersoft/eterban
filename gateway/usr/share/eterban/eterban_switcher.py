@@ -241,8 +241,8 @@ def create_iptables_rules():
     # Per-WAN-interface rules
     for iface in wan_ifaces:
         commands=[
-            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_firehol, 'src', '-j', 'DNAT', '--to-destination', ban_server + ':81'],
-            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1, 'src', '-j', 'DNAT', '--to-destination', ban_server + ':81'],
+            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_firehol, 'src', '-p', 'tcp', '-j', 'DNAT', '--to-destination', ban_server + ':81'],
+            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1, 'src', '-p', 'tcp', '-j', 'DNAT', '--to-destination', ban_server + ':81'],
             ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white, 'src', '-j', 'ACCEPT'],
             ['iptables', '-I', 'FORWARD', '-i', iface, '-p', 'tcp', '-m', 'multiport', '!', '--dport', '80,81,443', '-m', 'set', '--match-set', ipset_eterban_1, 'src', '-j', 'REJECT'],
             ['iptables', '-I', 'FORWARD', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white, 'src', '-j', 'ACCEPT']]
@@ -271,7 +271,7 @@ def create_ip6tables_rules():
     # Per-WAN-interface rules
     for iface in wan_ifaces:
         commands=[
-            ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'src', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:81'],
+            ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'src', '-p', 'tcp', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:81'],
             ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'src', '-j', 'ACCEPT'],
             ['ip6tables', '-I', 'FORWARD', '-i', iface, '-p', 'tcp', '-m', 'multiport', '!', '--dport', '80,81,443', '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'src', '-j', 'REJECT'],
             ['ip6tables', '-I', 'FORWARD', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'src', '-j', 'ACCEPT']]
@@ -291,8 +291,8 @@ def destroy_iptables_rules ():
     # Per-WAN-interface rules
     for iface in wan_ifaces:
         commands=[
-            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_firehol, 'src', '-j', 'DNAT', '--to-destination', ban_server + ':81'],
-            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1, 'src', '-j', 'DNAT', '--to-destination', ban_server + ':81'],
+            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_firehol, 'src', '-p', 'tcp', '-j', 'DNAT', '--to-destination', ban_server + ':81'],
+            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1, 'src', '-p', 'tcp', '-j', 'DNAT', '--to-destination', ban_server + ':81'],
             ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white, 'src', '-j', 'ACCEPT'],
             ['iptables', '-D', 'FORWARD', '-i', iface, '-p', 'tcp', '-m', 'multiport', '!', '--dport', '80,81,443', '-m', 'set', '--match-set', ipset_eterban_1, 'src', '-j', 'REJECT'],
             ['iptables', '-D', 'FORWARD', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white, 'src', '-j', 'ACCEPT']]
@@ -319,7 +319,7 @@ def destroy_ip6tables_rules ():
     # Per-WAN-interface rules
     for iface in wan_ifaces:
         commands=[
-            ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'src', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:81'],
+            ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'src', '-p', 'tcp', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:81'],
             ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'src', '-j', 'ACCEPT'],
             ['ip6tables', '-D', 'FORWARD', '-i', iface, '-p', 'tcp', '-m', 'multiport', '!', '--dport', '80,81,443', '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'src', '-j', 'REJECT'],
             ['ip6tables', '-D', 'FORWARD', '-i', iface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'src', '-j', 'ACCEPT']]
