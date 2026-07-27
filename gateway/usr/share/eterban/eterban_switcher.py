@@ -727,12 +727,21 @@ claim_interval_seconds = 60
 next_claim_at = 0
 read_pending = True
 
+
+def nonempty_stream_entries(response):
+    """Normalize RESP2/RESP3 XREADGROUP replies and discard empty streams."""
+    entries = response.items() if isinstance(response, dict) else response
+    return [(stream, messages) for stream, messages in entries
+            if messages and messages[0]]
+
+
 while True:
     try:
         entries = []
         if read_pending:
-            entries = r.xreadgroup(redis_commands_group, redis_commands_consumer,
-                                   {redis_commands_stream: '0'}, count=10)
+            entries = nonempty_stream_entries(
+                r.xreadgroup(redis_commands_group, redis_commands_consumer,
+                             {redis_commands_stream: '0'}, count=10))
             read_pending = bool(entries)
         if not entries and time.monotonic() >= next_claim_at:
             claimed = r.xautoclaim(redis_commands_stream, redis_commands_group,
@@ -741,8 +750,9 @@ while True:
             entries = [(redis_commands_stream, claimed[1])] if claimed[1] else []
             next_claim_at = time.monotonic() + claim_interval_seconds
         if not entries:
-            entries = r.xreadgroup(redis_commands_group, redis_commands_consumer,
-                                   {redis_commands_stream: '>'}, count=10, block=5000)
+            entries = nonempty_stream_entries(
+                r.xreadgroup(redis_commands_group, redis_commands_consumer,
+                             {redis_commands_stream: '>'}, count=10, block=5000))
         if not entries:
             time.sleep(0.1)
         for stream, messages in entries:

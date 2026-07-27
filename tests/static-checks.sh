@@ -56,6 +56,8 @@ fi
 
 python3 -c 'import importlib.util; p = "gateway/usr/share/eterban/eterban_api.py"; s = importlib.util.spec_from_file_location("eterban_api", p); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); m.ipset_test = lambda setname, ip: None; assert m.check_ip("192.0.2.1") == {"error": "ipset query failed"}'
 
+python3 -c 'import ast, pathlib; tree = ast.parse(pathlib.Path("gateway/usr/share/eterban/eterban_switcher.py").read_text()); node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "nonempty_stream_entries"); module = ast.Module(body=[node], type_ignores=[]); ns = {}; exec(compile(module, "eterban_switcher.py", "exec"), ns); f = ns["nonempty_stream_entries"]; assert f({b"eterban:commands": [[]]}) == []; assert f({b"eterban:commands": [[b"1-0", {b"command": b"ban"}]]}) == [(b"eterban:commands", [[b"1-0", {b"command": b"ban"}]])]'
+
 python3 -c 'import importlib.util; p = "ban-internal-server/data/www/int2.py"; s = importlib.util.spec_from_file_location("eterban_internal", p); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); m.get_original_dst = lambda request: ("192.0.2.1", 80); m.read_settings = lambda path: (_ for _ in ()).throw(KeyError("Settings")); f = type("F", (), {"path": "/unban", "request": object(), "client_address": ("198.51.100.1", 1), "send_error": lambda self, status, message: setattr(self, "response", (status, message))})(); m.OriginalDstHandler.do_GET(f); assert f.response[0] == 503' >/dev/null 2>&1
 
 if rg -q 'exec /usr/share/eterban/.*\.py' gateway/usr/bin/eterban.sh || ! rg -qx 'actionban = /usr/bin/python3 /usr/share/eterban/ban.py <ip> <name>' prod-server/etc/fail2ban/action.d/eterban.conf; then
@@ -73,7 +75,8 @@ rg -Fq "ipset_eterban_1, 'src', '-p', 'tcp', '-j', 'DNAT'" gateway/usr/share/ete
 rg -Fq "ipset_eterban_1_ipv6, 'src', '-p', 'tcp', '-j', 'DNAT'" gateway/usr/share/eterban/eterban_switcher.py && \
 rg -Fq 'claim_interval_seconds = 60' gateway/usr/share/eterban/eterban_switcher.py && \
 rg -Fq 'time.monotonic() >= next_claim_at' gateway/usr/share/eterban/eterban_switcher.py && \
-rg -Fq 'socket_timeout=10' gateway/usr/share/eterban/eterban_switcher.py || {
+rg -Fq 'socket_timeout=10' gateway/usr/share/eterban/eterban_switcher.py && \
+rg -Fq 'def nonempty_stream_entries(response):' gateway/usr/share/eterban/eterban_switcher.py || {
     echo 'external IPv4/IPv6 ban redirects must target public port 81' >&2
     exit 1
 }
