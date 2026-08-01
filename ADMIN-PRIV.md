@@ -6,7 +6,7 @@ deployment.
 
 ## Current production baseline
 
-- Installed release: `eterban 0.11-alt3`.
+- Installed release: `eterban 0.12-alt1`.
 - Install all four subpackages at the same EVR:
   `eterban-common`, `eterban-gateway`, `eterban-web`, and
   `eterban-fail2ban`.
