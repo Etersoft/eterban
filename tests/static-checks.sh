@@ -82,6 +82,42 @@ rg -Fq "['ipset', 'list', name]" gateway/usr/share/eterban/eterban_switcher.py |
     exit 1
 }
 
+# Internal interface: whitelisted destinations must bypass the ban DNAT,
+# symmetric in create (-I) and destroy (-D) for both IPv4 and IPv6.
+rg -Fq "'--match-set', ipset_eterban_white, 'dst', '-j', 'ACCEPT'" gateway/usr/share/eterban/eterban_switcher.py && \
+rg -Fq "'--match-set', ipset_eterban_white_ipv6, 'dst', '-j', 'ACCEPT'" gateway/usr/share/eterban/eterban_switcher.py && \
+[ "$(rg -Fc "'--match-set', ipset_eterban_white, 'dst', '-j', 'ACCEPT'" gateway/usr/share/eterban/eterban_switcher.py)" -ge 2 ] && \
+[ "$(rg -Fc "'--match-set', ipset_eterban_white_ipv6, 'dst', '-j', 'ACCEPT'" gateway/usr/share/eterban/eterban_switcher.py)" -ge 2 ] || {
+    echo 'internal interface must whitelist destinations before ban DNAT (create+destroy, v4+v6)' >&2
+    exit 1
+}
+
+# filter_firehol: drop netset networks covered by the whitelist, keep the rest.
+python3 -c '
+import importlib.util, ipaddress
+p = "gateway/usr/share/eterban/filter_firehol.py"
+s = importlib.util.spec_from_file_location("filter_firehol", p)
+m = importlib.util.module_from_spec(s); s.loader.exec_module(m)
+wl = [ipaddress.ip_network("10.0.0.0/8")]
+out, dropped = m.filter_netset(["10.0.0.0/8", "10.20.30.0/24", "203.0.113.0/24", "# comment", "junk"], wl, "firehol_tmp")
+assert out == ["add firehol_tmp 203.0.113.0/24"], out
+assert dropped == 2, dropped
+# A network that merely contains a whitelisted subnet is NOT split/dropped
+# (kept as-is); finer-grained holes are guaranteed by the iptables ACCEPT rule.
+out2, dropped2 = m.filter_netset(["10.0.0.0/8"], [ipaddress.ip_network("10.20.30.0/24")], "firehol_tmp")
+assert out2 == ["add firehol_tmp 10.0.0.0/8"], out2
+assert dropped2 == 0, dropped2
+# Missing/empty whitelist → passthrough.
+out3, dropped3 = m.filter_netset(["203.0.113.0/24"], [], "firehol_tmp")
+assert out3 == ["add firehol_tmp 203.0.113.0/24"], out3
+assert dropped3 == 0, dropped3
+'
+
+rg -Fq 'python3 "$filter" "$firehol_tmp" < "$download"' gateway/etc/cron.hourly/get_firehol_ip.sh || {
+    echo 'firehol import must run imported networks through the whitelist filter' >&2
+    exit 1
+}
+
 rg -Fqx '        listen 81;' ban-server/etc/nginx/sites-enabled.d/eterban.conf && \
 rg -Fq 'run_server(settings['"'"'ban_server'"'"'])' ban-internal-server/data/www/int2.py && \
 rg -Fq 'port=82' ban-internal-server/data/www/int2.py && \
