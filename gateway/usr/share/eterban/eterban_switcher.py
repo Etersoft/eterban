@@ -253,11 +253,16 @@ def create_iptables_rules():
         for command in commands:
             ensure_firewall_rule(command)
 
-    # Internal interface: block outgoing connections to banned IPs (DNAT by destination)
+    # Internal interface: block outgoing connections to banned IPs (DNAT by destination).
+    # A whitelisted destination is accepted first, so our own IPs are never
+    # redirected even if they appear inside an external list (firehol, bogon).
+    # ensure_firewall_rule inserts with -I, so this ACCEPT (appended last) lands
+    # on top and wins over the dst-DNAT rules above it.
     if internal_interface:
         commands=[
             ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82'],
-            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_firehol, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82']]
+            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_firehol, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82'],
+            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_white, 'dst', '-j', 'ACCEPT']]
         for command in commands:
             ensure_firewall_rule(command)
 
@@ -282,10 +287,13 @@ def create_ip6tables_rules():
         for command in commands:
             ensure_firewall_rule(command)
 
-    # Internal interface: block outgoing connections to banned IPv6 IPs (DNAT by destination)
+    # Internal interface: block outgoing connections to banned IPv6 IPs (DNAT by destination).
+    # Accept whitelisted destinations first (appended last → inserted on top),
+    # mirroring the IPv4 path, so our own IPv6s bypass the DNAT.
     if internal_interface:
         commands=[
-            ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:82']]
+            ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:82'],
+            ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'dst', '-j', 'ACCEPT']]
         for command in commands:
             ensure_firewall_rule(command)
 
@@ -311,7 +319,8 @@ def destroy_iptables_rules ():
     if internal_interface:
         commands=[
             ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82'],
-            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_firehol, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82']]
+            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_firehol, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82'],
+            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_white, 'dst', '-j', 'ACCEPT']]
         for command in commands:
             remove_firewall_rule(command)
 
@@ -336,7 +345,8 @@ def destroy_ip6tables_rules ():
 
     if internal_interface:
         commands=[
-            ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:82']]
+            ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:82'],
+            ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'dst', '-j', 'ACCEPT']]
         for command in commands:
             remove_firewall_rule(command)
 
