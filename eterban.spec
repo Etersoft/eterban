@@ -1,8 +1,8 @@
 %define defphp php%php_defver
 
 Name: eterban
-Version: 0.11
-Release: alt3
+Version: 0.12
+Release: alt1
 
 Summary: Etersoft ban service
 
@@ -39,6 +39,7 @@ Group: Development/Other
 Requires: eterban-common = %EVR
 Requires: iptables ipset conntrack-tools
 Requires: crontabs logrotate
+Requires: python3
 
 %description gateway
 Etersoft ban service.
@@ -152,6 +153,7 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %_datadir/%name/autoban_cli.py
 %_datadir/%name/eterban_api.py
 %_datadir/%name/eterban_internal.py
+%_datadir/%name/filter_firehol.py
 %systemd_unitdir/eterban-api.service
 %systemd_unitdir/eterban-internal.service
 %exclude %_datadir/%name/__pycache__/*
@@ -164,6 +166,10 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Fri Aug 01 2026 Vitaly Lipatov <lav@altlinux.ru> 0.12-alt1
+- gateway: exempt whitelisted destinations from internal ban DNAT (defense in depth)
+- gateway: drop whitelisted networks when importing firehol_level1
+
 * Tue Jul 28 2026 Vitaly Lipatov <lav@altlinux.ru> 0.11-alt3
 - gateway: do not restore legacy ipset snapshots over active sets
 
