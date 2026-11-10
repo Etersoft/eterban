@@ -55,6 +55,11 @@ def parse_config (path_to_config, path_to_log):
     redis_server = config.get("Settings", "redis_server", fallback = "redis_server")
     ban_server = config.get("Settings", "ban_server", fallback = "ban_server")
     ban_server_ipv6 = config.get("Settings", "ban_server_ipv6", fallback = "")
+    # Internal clients may be redirected to a separate host: the internal
+    # page needs SO_ORIGINAL_DST and must run on the gateway doing the DNAT,
+    # while the public page on ban_server may live elsewhere.
+    ban_server_internal = config.get("Settings", "ban_server_internal", fallback = "").strip()
+    ban_server_internal_ipv6 = config.get("Settings", "ban_server_internal_ipv6", fallback = "").strip()
     internal_interface = config.get("Settings", "internal_interface", fallback = "")
     whitelist_file = config.get("Settings", "whitelist_file", fallback = "/etc/eterban/whitelist.txt")
 
@@ -84,6 +89,20 @@ def parse_config (path_to_config, path_to_log):
             if not isinstance(ipv6_address, ipaddress.IPv6Address):
                 raise ValueError("ban_server_ipv6 is not IPv6")
             ban_server_ipv6 = str(ipv6_address)
+        if ban_server_internal:
+            internal_address = ipaddress.ip_address(ban_server_internal)
+            if not isinstance(internal_address, ipaddress.IPv4Address):
+                raise ValueError("ban_server_internal is not IPv4")
+            ban_server_internal = str(internal_address)
+        else:
+            ban_server_internal = ban_server
+        if ban_server_internal_ipv6:
+            internal_address = ipaddress.ip_address(ban_server_internal_ipv6)
+            if not isinstance(internal_address, ipaddress.IPv6Address):
+                raise ValueError("ban_server_internal_ipv6 is not IPv6")
+            ban_server_internal_ipv6 = str(internal_address)
+        else:
+            ban_server_internal_ipv6 = ban_server_ipv6
         if not all(interface_name_re.fullmatch(interface) for interface in wan_ifaces):
             raise ValueError("invalid WAN interface name")
         if internal_interface and not interface_name_re.fullmatch(internal_interface):
@@ -105,7 +124,8 @@ def parse_config (path_to_config, path_to_log):
             log_file.write(info)
         sys.exit(78)
     else:
-        return (redis_server, ban_server, ban_server_ipv6, wan_ifaces, internal_interface, maxelem, whitelist_file)
+        return (redis_server, ban_server, ban_server_ipv6, ban_server_internal, ban_server_internal_ipv6,
+                wan_ifaces, internal_interface, maxelem, whitelist_file)
 
 
 def redis_connection_options(config):
@@ -234,7 +254,7 @@ def is_whitelisted(ip_str):
     return rc == 0
 
 def create_iptables_rules():
-    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, wan_ifaces, internal_interface, maxelem
+    global ban_server, ban_server_internal, ipset_eterban_1, ipset_firehol, ipset_eterban_white, wan_ifaces, internal_interface, maxelem
     # Create ipsets (once)
     commands=[['ipset', 'create', ipset_eterban_1, 'hash:ip', 'maxelem', str(maxelem)],
         ['ipset', 'create', ipset_firehol, 'hash:net'],
@@ -260,15 +280,15 @@ def create_iptables_rules():
     # on top and wins over the dst-DNAT rules above it.
     if internal_interface:
         commands=[
-            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82'],
-            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_firehol, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82'],
+            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server_internal + ':82'],
+            ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_firehol, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server_internal + ':82'],
             ['iptables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_white, 'dst', '-j', 'ACCEPT']]
         for command in commands:
             ensure_firewall_rule(command)
 
 
 def create_ip6tables_rules():
-    global ban_server_ipv6, ipset_eterban_1_ipv6, ipset_eterban_white_ipv6, wan_ifaces, internal_interface, maxelem
+    global ban_server_ipv6, ban_server_internal_ipv6, ipset_eterban_1_ipv6, ipset_eterban_white_ipv6, wan_ifaces, internal_interface, maxelem
     if not ban_server_ipv6:
         return
     # Create ipsets (once)
@@ -292,14 +312,14 @@ def create_ip6tables_rules():
     # mirroring the IPv4 path, so our own IPv6s bypass the DNAT.
     if internal_interface:
         commands=[
-            ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:82'],
+            ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', '[' + ban_server_internal_ipv6 + ']:82'],
             ['ip6tables', '-t', 'nat', '-I', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'dst', '-j', 'ACCEPT']]
         for command in commands:
             ensure_firewall_rule(command)
 
 
 def destroy_iptables_rules ():
-    global ban_server, ipset_eterban_1, ipset_firehol, ipset_eterban_white, wan_ifaces, internal_interface
+    global ban_server, ban_server_internal, ipset_eterban_1, ipset_firehol, ipset_eterban_white, wan_ifaces, internal_interface
     # Per-WAN-interface rules
     for iface in wan_ifaces:
         commands=[
@@ -318,15 +338,15 @@ def destroy_iptables_rules ():
     # Internal interface: remove outgoing block rules
     if internal_interface:
         commands=[
-            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82'],
-            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_firehol, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server + ':82'],
+            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server_internal + ':82'],
+            ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_firehol, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', ban_server_internal + ':82'],
             ['iptables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_white, 'dst', '-j', 'ACCEPT']]
         for command in commands:
             remove_firewall_rule(command)
 
 
 def destroy_ip6tables_rules ():
-    global ban_server_ipv6, ipset_eterban_1_ipv6, ipset_eterban_white_ipv6, wan_ifaces, internal_interface
+    global ban_server_ipv6, ban_server_internal_ipv6, ipset_eterban_1_ipv6, ipset_eterban_white_ipv6, wan_ifaces, internal_interface
     if not ban_server_ipv6:
         return
     # Per-WAN-interface rules
@@ -345,7 +365,7 @@ def destroy_ip6tables_rules ():
 
     if internal_interface:
         commands=[
-            ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', '[' + ban_server_ipv6 + ']:82'],
+            ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_1_ipv6, 'dst', '-p', 'tcp', '-m', 'multiport', '--dports', '80,443', '-j', 'DNAT', '--to-destination', '[' + ban_server_internal_ipv6 + ']:82'],
             ['ip6tables', '-t', 'nat', '-D', 'PREROUTING', '-i', internal_interface, '-m', 'set', '--match-set', ipset_eterban_white_ipv6, 'dst', '-j', 'ACCEPT']]
         for command in commands:
             remove_firewall_rule(command)
@@ -365,7 +385,8 @@ signal.signal(signal.SIGTERM, exit_gracefully)
 
 
 #print ('1')
-redis_server, ban_server, ban_server_ipv6, wan_ifaces, internal_interface, maxelem, whitelist_file = parse_config (path_to_config, path_to_log)
+(redis_server, ban_server, ban_server_ipv6, ban_server_internal, ban_server_internal_ipv6,
+ wan_ifaces, internal_interface, maxelem, whitelist_file) = parse_config (path_to_config, path_to_log)
 
 #destroy_iptables_rules ()
 #sys.exit()

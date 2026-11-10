@@ -92,6 +92,29 @@ rg -Fq "'--match-set', ipset_eterban_white_ipv6, 'dst', '-j', 'ACCEPT'" gateway/
     exit 1
 }
 
+# Internal ban page: listen on ban_server_internal, fall back to ban_server.
+python3 -c '
+import configparser, importlib.util
+p = "ban-internal-server/data/www/int2.py"
+s = importlib.util.spec_from_file_location("eterban_internal", p)
+m = importlib.util.module_from_spec(s); s.loader.exec_module(m)
+c = configparser.ConfigParser()
+c.read_string("[Settings]\nban_server = 192.0.2.81\n")
+assert m.internal_listen_address(c["Settings"]) == "192.0.2.81"
+c.read_string("[Settings]\nban_server = 192.0.2.81\nban_server_internal = 10.0.0.1\n")
+assert m.internal_listen_address(c["Settings"]) == "10.0.0.1"
+' || {
+    echo 'internal ban page must listen on ban_server_internal (fallback ban_server)' >&2
+    exit 1
+}
+
+# Internal clients (internal_interface) go to ban_server_internal:82, external
+# ones stay on ban_server:81; without ban_server_internal* both use ban_server*.
+python3 tests/switcher-rules.py || {
+    echo 'internal DNAT must target ban_server_internal:82 (fallback ban_server)' >&2
+    exit 1
+}
+
 # filter_firehol: drop netset networks covered by the whitelist, keep the rest.
 python3 -c '
 import importlib.util, ipaddress
@@ -119,7 +142,7 @@ rg -Fq 'python3 "$filter" "$firehol_tmp" < "$download"' gateway/etc/cron.hourly/
 }
 
 rg -Fqx '        listen 81;' ban-server/etc/nginx/sites-enabled.d/eterban.conf && \
-rg -Fq 'run_server(settings['"'"'ban_server'"'"'])' ban-internal-server/data/www/int2.py && \
+rg -Fq 'run_server(internal_listen_address(settings))' ban-internal-server/data/www/int2.py && \
 rg -Fq 'port=82' ban-internal-server/data/www/int2.py && \
 rg -Fq 'Для разблокировки нажмите:' ban-server/data/www/index.html && \
 rg -Fq 'You accessed:' ban-internal-server/data/www/int2.py || {

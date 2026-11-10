@@ -127,6 +127,15 @@ class OriginalDstHandler(BaseHTTPRequestHandler):
         """
         self.wfile.write(response.encode("utf-8"))
 
+def internal_listen_address(settings):
+    """Address of the internal ban page: ban_server_internal, else ban_server.
+
+    The page reads SO_ORIGINAL_DST, so it must run on the gateway doing the
+    internal DNAT, even when the public page (ban_server) is on another host.
+    """
+    return settings.get('ban_server_internal', '').strip() or settings['ban_server']
+
+
 # Запуск HTTP-сервера
 def run_server(host, port=82):
     address = ipaddress.ip_address(host)
@@ -145,7 +154,7 @@ def run_server(host, port=82):
 if __name__ == "__main__":
     try:
         settings = read_settings('/etc/eterban/settings.ini')
-        run_server(settings['ban_server'])
+        run_server(internal_listen_address(settings))
     except (KeyError, ValueError, configparser.Error) as error:
         logger.error('Invalid Eterban configuration: %s', error)
         raise SystemExit(78)
