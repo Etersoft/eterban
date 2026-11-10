@@ -166,9 +166,11 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
-* Fri Aug 01 2026 Vitaly Lipatov <lav@altlinux.ru> 0.12-alt1
-- gateway: exempt whitelisted destinations from internal ban DNAT (defense in depth)
+* Wed Nov 11 2026 Vitaly Lipatov <lav@altlinux.ru> 0.12-alt1
+- gateway: exempt whitelisted destinations from internal ban DNAT
 - gateway: drop whitelisted networks when importing firehol_level1
+- gateway: remove CLI unbans from the Redis active bans set
+- eterban: do not fail count and list on IPv4-only gateways
 
 * Tue Jul 28 2026 Vitaly Lipatov <lav@altlinux.ru> 0.11-alt3
 - gateway: do not restore legacy ipset snapshots over active sets
