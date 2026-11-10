@@ -2,7 +2,7 @@
 
 Name: eterban
 Version: 0.12
-Release: alt1
+Release: alt2
 
 Summary: Etersoft ban service
 
@@ -166,6 +166,10 @@ cp -a prod-server/usr/share/%name/* %buildroot%_datadir/%name/
 %config(noreplace) /etc/fail2ban/action.d/eterban.conf
 
 %changelog
+* Wed Nov 11 2026 Vitaly Lipatov <lav@altlinux.ru> 0.12-alt2
+- gateway: add ban_server_internal for the internal ban page address
+- README: document a separate web node and cleanup of local files
+
 * Wed Nov 11 2026 Vitaly Lipatov <lav@altlinux.ru> 0.12-alt1
 - gateway: exempt whitelisted destinations from internal ban DNAT
 - gateway: drop whitelisted networks when importing firehol_level1
