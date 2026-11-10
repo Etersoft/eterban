@@ -8,21 +8,32 @@ count_set() {
     printf '%s\n' "$output" | awk '/^Number of entries:/ { print $4; found=1 } END { if (!found) print 0 }'
 }
 
+# The IPv6 set exists only when ban_server_ipv6 is configured on the gateway.
+has_ipv6_set() {
+    ipset list -n 2>/dev/null | grep -Fqx "$setname_ipv6"
+}
+
 command="$1"
 [ -n "$command" ] && shift
 
 if [ "$command" = "count" ] ; then
     count_v4=$(count_set "$setname") || exit 1
-    count_v6=$(count_set "$setname_ipv6") || exit 1
+    count_v6=
+    if has_ipv6_set ; then
+        count_v6=$(count_set "$setname_ipv6") || exit 1
+    fi
     echo "Count of banned:"
     echo "$setname: $count_v4"
-    echo "$setname_ipv6: $count_v6"
+    [ -z "$count_v6" ] || echo "$setname_ipv6: $count_v6"
     exit
 fi
 
 if [ "$command" = "list" ] ; then
-    ipset list "$setname" && ipset list "$setname_ipv6"
-    exit $?
+    ipset list "$setname" || exit
+    if has_ipv6_set ; then
+        ipset list "$setname_ipv6" || exit
+    fi
+    exit
 fi
 
 if [ "$command" = "unban" ] ; then
@@ -74,7 +85,9 @@ fi
 if [ "$command" = "search" ] ; then
     mask="$1"
     ipset list "$setname" | grep --color=auto -F -- "$mask"
-    ipset list "$setname_ipv6" | grep --color=auto -F -- "$mask"
+    if has_ipv6_set ; then
+        ipset list "$setname_ipv6" | grep --color=auto -F -- "$mask"
+    fi
     exit
 fi
 

@@ -26,6 +26,15 @@ cat >"$bin_dir/ipset" <<'EOF'
 printf 'ipset %s\n' "$*" >>"$ETERBAN_TEST_RECORD"
 case "$1" in
     list)
+        if [ "$2" = "-n" ] ; then
+            for name in eterban_1 eterban_1_ipv6 ; do
+                case " ${ETERBAN_TEST_MISSING_SETS:-} " in
+                    *" $name "*) ;;
+                    *) printf '%s\n' "$name" ;;
+                esac
+            done
+            exit 0
+        fi
         case " ${ETERBAN_TEST_LIST_FAILURES:-} " in
             *" $2 "*) exit 1 ;;
         esac
@@ -71,6 +80,7 @@ run_cli() {
     if ETERBAN_TEST_RECORD="$record" ETERBAN_TEST_STATUS="${ETERBAN_TEST_STATUS:-0}" \
         ETERBAN_TEST_MATCHES="${ETERBAN_TEST_MATCHES:-}" ETERBAN_TEST_COUNT="${ETERBAN_TEST_COUNT:-2}" \
         ETERBAN_TEST_LIST_FAILURES="${ETERBAN_TEST_LIST_FAILURES:-}" \
+        ETERBAN_TEST_MISSING_SETS="${ETERBAN_TEST_MISSING_SETS:-}" \
         sh "$test_tmp/eterban" "$@" >"$test_tmp/stdout" 2>"$test_tmp/stderr"; then
         cli_status=0
     else
@@ -87,7 +97,19 @@ eterban_1_ipv6: 2' "$test_tmp/stdout"
 ETERBAN_TEST_STATUS=0 ETERBAN_TEST_MATCHES='' run_cli list
 assert_status "$cli_status" 0
 assert_file 'ipset list eterban_1
+ipset list -n
 ipset list eterban_1_ipv6' "$record"
+
+# IPv4-only gateway: eterban_1_ipv6 is not created without ban_server_ipv6.
+ETERBAN_TEST_STATUS=0 ETERBAN_TEST_MATCHES='' ETERBAN_TEST_MISSING_SETS='eterban_1_ipv6' run_cli count
+assert_status "$cli_status" 0
+assert_file 'Count of banned:
+eterban_1: 2' "$test_tmp/stdout"
+
+ETERBAN_TEST_STATUS=0 ETERBAN_TEST_MATCHES='' ETERBAN_TEST_MISSING_SETS='eterban_1_ipv6' run_cli list
+assert_status "$cli_status" 0
+assert_file 'ipset list eterban_1
+ipset list -n' "$record"
 
 ETERBAN_TEST_STATUS=0 ETERBAN_TEST_MATCHES='' ETERBAN_TEST_LIST_FAILURES='eterban_1' run_cli count
 assert_status "$cli_status" 1
