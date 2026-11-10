@@ -17,6 +17,14 @@ hostname = myserver
 ```
 Иначе будет использоваться hostname машины.
 
+Забаненные внешние клиенты перенаправляются на публичную страницу
+`ban_server:81` (IPv6 — `ban_server_ipv6`). Внутренние клиенты (интерфейс
+`internal_interface`), обращающиеся по 80/443 к забаненным адресам,
+перенаправляются на внутреннюю страницу `ban_server_internal:82`
+(IPv6 — `ban_server_internal_ipv6`). Если `ban_server_internal` не задан,
+используется `ban_server`, если не задан `ban_server_internal_ipv6` —
+`ban_server_ipv6`. IPv6-правила создаются, только если задан `ban_server_ipv6`.
+
 
 ## Установка:
 
@@ -54,6 +62,83 @@ bantime  = 1
 На сервер для заблокированных (бан-сервер) устанвливается eterban-web.
 
 Страница блокировки находится в /var/www/html/eterban
+
+### Шлюз и отдельный веб-узел
+
+Публичную страницу блокировки (eterban-web: nginx, php-fpm, порт 81) можно
+вынести со шлюза на отдельный узел. Внутренняя страница (сервис
+eterban-internal из eterban-gateway, порт 82) остаётся на шлюзе: она узнаёт
+адрес, к которому обращался клиент, через SO_ORIGINAL_DST, а это работает
+только на узле, где выполняется DNAT.
+
+```
+внешний клиент --> шлюз: DNAT на ban_server:81 ----------> веб-узел: eterban-web
+внутренний клиент --> шлюз: DNAT на ban_server_internal:82 --> шлюз: eterban-internal
+веб-узел (unban.php) и шлюз (eterban-internal) --> Redis: XADD eterban:commands
+```
+
+settings.ini на шлюзе:
+
+```
+[Settings]
+redis_server = <адрес Redis>
+redis_username = switcher
+redis_password = <пароль-шлюза>
+ban_server = <адрес веб-узла>
+ban_server_ipv6 = <IPv6 веб-узла>
+ban_server_internal = <адрес шлюза для внутренних клиентов>
+ban_server_internal_ipv6 = <IPv6 шлюза для внутренних клиентов>
+internal_interface = <внутренний интерфейс>
+i_interfaces = <WAN-интерфейсы>
+```
+
+На веб-узле ставится только eterban-web (с ним eterban-common), без
+eterban-gateway. Странице разбана нужны только параметры Redis:
+
+```
+[Settings]
+redis_server = <адрес Redis>
+redis_username = web
+redis_password = <пароль-веб-узла>
+#redis_port = 6379
+#redis_tls = false
+#hostname = <имя для поля by, по умолчанию hostname узла>
+```
+
+Минимальный ACL веб-узла: unban.php только добавляет команду в поток
+(AUTH и XADD), ban.php и страницы index.html, unban.html к Redis не
+обращаются:
+
+```
+ACL SETUSER web on >пароль-веб-узла ~eterban:commands +xadd
+```
+
+Важно: unban.php разбанивает адрес клиента (`REMOTE_ADDR`), поэтому DNAT
+на шлюзе должен доходить до веб-узла без SNAT, а ответы веб-узла забаненным
+клиентам должны возвращаться через шлюз (маршрут к внешним сетям у
+веб-узла — через шлюз), иначе обратная трансляция адреса не выполнится и
+клиент не увидит страницу.
+
+Порядок переноса:
+
+1. Обновить шлюз до версии с `ban_server_internal`, задать
+   `ban_server_internal` (и `ban_server_internal_ipv6`) — адрес шлюза,
+   доступный внутренним клиентам; перезапустить `eterban` и
+   `eterban-internal`. Проверка: `iptables -t nat -S PREROUTING | grep :82`,
+   `ss -ltn | grep :82`.
+2. Подготовить веб-узел: установить eterban-web, создать в Redis
+   пользователя `web` (ACL выше), заполнить settings.ini, включить nginx и
+   php-fpm версии по умолчанию (`systemctl enable --now nginx php<версия>-fpm`).
+3. Проверить веб-узел по временному адресу: страница на порту 81 и разбан
+   тестового адреса (в Redis появляется XADD в `eterban:commands`).
+4. Перенести публичный адрес (`ban_server`, `ban_server_ipv6`) со шлюза на
+   веб-узел и настроить маршрут ответов через шлюз; если адрес меняется —
+   поменять `ban_server` на шлюзе и перезапустить `eterban`.
+5. Убрать публичную страницу со шлюза: удалить eterban-web (права
+   settings.ini вернутся к 0600 root:root) или отключить его конфиг nginx.
+6. Проверка: забанить тестовый адрес (`eterban ban`), открыть с него любой
+   сайт по 80 порту — страница блокировки с веб-узла, разбан с неё
+   снимает бан (`eterban check`).
 
 ## Обновление с предыдущих версий
 
@@ -147,6 +232,34 @@ ACL SETUSER client on >пароль-клиентов ~eterban:commands +xadd
 Внимание: если включить пароль (выключить `default`) на Redis раньше, чем
 все клиенты обновлены и получили redis_username/redis_password, клиенты
 перестанут банить.
+
+### Локальные файлы старых установок
+
+На установках, настроенных до пакетирования страниц, могут остаться файлы
+вне пакетов. Они перекрывают пакетные и должны быть удалены:
+
+- конфиги nginx `notyeteterban.conf` (`listen 91.232.225.67:81`, страница
+  «Вас пока не заблокировали») и `eterban.eterhost.ru.conf`. Пакетный
+  `/etc/nginx/sites-enabled.d/eterban.conf` слушает `listen 81` на всех
+  адресах, а nginx выбирает сервер с более точным адресом в `listen`,
+  поэтому с 0.11 (внешние баны перенаправляются на порт 81) забаненные
+  видят «не заблокировали». Удалить, затем `nginx -t && systemctl reload nginx`;
+- `/var/www/html/eterban/int2.py` — теперь это пакетный
+  `/usr/share/eterban/eterban_internal.py` (сервис eterban-internal);
+- `/var/www/html/eterban/unban-cli.php`, `/var/www/html/eterban/unban-int.php`
+  — ручные страницы разбана, не входят в пакет; разбан старым `PUBLISH`
+  шлюз 0.11+ не слушает (пакетные unban.php и eterban-internal шлют XADD);
+- `/etc/systemd/system/eterban-internal.service` — локальный юнит перекрывает
+  пакетный `/lib/systemd/system/eterban-internal.service`. Удалить, затем
+  `systemctl daemon-reload` и `systemctl restart eterban-internal`.
+
+### PHP
+
+eterban-web требует PHP версии по умолчанию ветки (`%php_defver`, в Sisyphus
+— 8.5): пакеты `php8.5-fpm-fcgi`, `php8.5-redis`, `php8.5-openssl`, nginx
+обращается к сокету `/var/run/php8.5-fpm/php8.5-fpm.sock`. После обновления
+включите php-fpm этой версии (`systemctl enable --now php8.5-fpm`) и
+отключите прежний, если он больше не нужен.
 
 ### fail2ban
 
