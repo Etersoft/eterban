@@ -582,6 +582,9 @@ def apply_unban(ip):
     except ValueError:
         log_redis_error("Not parsed as IP, skipped " + str(ip))
         return False
+    # unban.py sends "192.0.2.10/32"; bans are stored as plain addresses.
+    if network.num_addresses == 1:
+        ip = str(network.network_address)
 
     setname = ipset_eterban_1_ipv6 if isinstance(network, ipaddress.IPv6Network) else ipset_eterban_1
     command = ['ipset', 'del', setname, ip, '-exist']
